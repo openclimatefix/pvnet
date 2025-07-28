@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pylab
 import torch
-from ocf_data_sampler.torch_datasets.sample.base import TensorBatch
+from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 
 
 def plot_sample_forecasts(

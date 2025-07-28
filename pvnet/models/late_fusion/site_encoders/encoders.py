@@ -4,7 +4,7 @@
 
 import einops
 import torch
-from ocf_data_sampler.torch_datasets.sample.base import TensorBatch
+from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from torch import nn
 
 from pvnet.models.late_fusion.linear_networks.networks import ResFCNet2
