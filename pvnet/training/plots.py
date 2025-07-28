@@ -1,17 +1,32 @@
 """Plots logged during training"""
+from collections.abc import Sequence
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import pylab
 import torch
+import wandb
 from ocf_data_sampler.torch_datasets.sample.base import TensorBatch
+
+
+def wandb_line_plot(
+    x: Sequence[float], 
+    y: Sequence[float], 
+    xlabel: str, 
+    ylabel: str, 
+    title: str | None = None
+) -> wandb.plot.CustomChart:
+    """Make a wandb line plot"""
+    data = [[xi, yi] for (xi, yi) in zip(x, y)]
+    table = wandb.Table(data=data, columns=[xlabel, ylabel])
+    return wandb.plot.line(table, xlabel, ylabel, title=title)
 
 
 def plot_sample_forecasts(
     batch: TensorBatch,
     y_hat: torch.Tensor,
-    batch_idx: int | None = None,
-    quantiles: list[float] | None = None,
-    key_to_plot: str = "gsp",
+    quantiles: list[float] | None,
+    key_to_plot: str,
 ) -> plt.Figure:
     """Plot a batch of data and the forecast from that batch"""
 
@@ -25,10 +40,8 @@ def plot_sample_forecasts(
 
     fig, axes = plt.subplots(4, 4, figsize=(16, 16))
 
-    for i, ax in enumerate(axes.ravel()):
-        if i >= batch_size:
-            ax.axis("off")
-            continue
+    for i, ax in enumerate(axes.ravel()[:batch_size]):
+
         ax.plot(times_utc[i], y[i], marker=".", color="k", label=r"$y$")
 
         if quantiles is None:
@@ -58,12 +71,14 @@ def plot_sample_forecasts(
 
     axes[0, 0].legend(loc="best")
 
+    if batch_size<16:
+        for ax in axes.ravel()[batch_size:]:
+            ax.axis("off")
+    
     for ax in axes[-1, :]:
         ax.set_xlabel("Time (hour of day)")
 
     title =  f"Normed {key_to_plot.upper()} output"
-    if batch_idx is not None:
-        title = f"{title} : batch_idx={batch_idx}"
     
     plt.suptitle(title)
     plt.tight_layout()

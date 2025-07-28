@@ -90,13 +90,13 @@ def train(config: DictConfig) -> None:
     if use_wandb_logger:
         for callback in callbacks:
             if isinstance(callback, ModelCheckpoint):
-                # Need to call the .experiment property to have the logger create an ID
-                wandb_logger.experiment
+                # Calling the .experiment property instantiates a wandb run
+                wandb_id = wandb_logger.experiment.id
 
                 # Save the run results to the expected parent folder but with the folder name
                 # set by the wandb ID
                 save_dir = "/".join(
-                    callback.dirpath.split("/")[:-1] + [wandb_logger.version]
+                    callback.dirpath.split("/")[:-1] + [wandb_id]
                 )
 
                 callback.dirpath = save_dir

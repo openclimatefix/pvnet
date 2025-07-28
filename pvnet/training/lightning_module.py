@@ -3,16 +3,19 @@ import tempfile
 
 import lightning.pytorch as pl
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
 import wandb
+import xarray as xr
 from ocf_data_sampler.torch_datasets.sample.base import TensorBatch, copy_batch_to_device
 
+from pvnet.data.base_datamodule import collate_fn
 from pvnet.models.base_model import BaseModel
 from pvnet.optimizers import AbstractOptimizer
-from pvnet.training.plots import plot_sample_forecasts
-from pvnet.training.stores import BatchAccumulator, MetricAccumulator, PredAccumulator
+from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot
+
 
 
 class PVNetLightningModule(pl.LightningModule):
@@ -22,14 +25,14 @@ class PVNetLightningModule(pl.LightningModule):
         self,
         model: BaseModel,
         optimizer: AbstractOptimizer,
-        save_validation_results_csv: bool = False,
+        save_all_validation_results: bool = False,
     ):
         """Lightning module for training PVNet models
 
         Args:
             model: The PVNet model
             optimizer: Optimizer
-            save_validation_results_csv: whether to save full CSV outputs from validation results
+            save_all_validation_results: Whether to save all the validation predictions to wandb
         """
         super().__init__()
 
@@ -40,14 +43,8 @@ class PVNetLightningModule(pl.LightningModule):
         # This setting is only used when lr is tuned with callback
         self.lr = None
 
-        self._accumulated_metrics = MetricAccumulator()
-        self._accumulated_batches = BatchAccumulator(key_to_keep=model._target_key)
-        self._accumulated_y_hat = PredAccumulator()
-        self._horizon_maes = MetricAccumulator()
-
         # Set up store for all all validation results so we can log these
-        self.validation_epoch_results = []
-        self.save_validation_results_csv = save_validation_results_csv
+        self.save_all_validation_results = save_all_validation_results
 
     def transfer_batch_to_device(
         self, 
@@ -58,7 +55,7 @@ class PVNetLightningModule(pl.LightningModule):
         """Method to move custom batches to a given device"""
         return copy_batch_to_device(batch, device)
 
-    def _calculate_quantile_loss(self, y_quantiles: list[float], y: torch.Tensor) -> torch.Tensor:
+    def _calculate_quantile_loss(self, y_quantiles: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Calculate quantile loss.
 
         Note:
@@ -80,6 +77,13 @@ class PVNetLightningModule(pl.LightningModule):
         losses = 2 * torch.cat(losses, dim=2)
 
         return losses.mean()
+    
+    def configure_optimizers(self):
+        """Configure the optimizers using learning rate found with LR finder if used"""
+        if self.lr is not None:
+            # Use learning rate found by learning rate finder callback
+            self._optimizer.lr = self.lr
+        return self._optimizer(self.model)
 
     def _calculate_common_losses(
         self, 
@@ -94,92 +98,10 @@ class PVNetLightningModule(pl.LightningModule):
             losses["quantile_loss"] = self._calculate_quantile_loss(y_hat, y)
             y_hat = self.model._quantiles_to_prediction(y_hat)
 
-        losses.update({
-                "MSE":  F.mse_loss(y_hat, y),
-                "MAE": F.l1_loss(y_hat, y),
-            }
-        )
+        losses.update({"MSE":  F.mse_loss(y_hat, y), "MAE": F.l1_loss(y_hat, y)})
 
         return losses
-
-    def _step_mae_and_mse_metrics(
-        self, 
-        y: torch.Tensor, 
-        y_hat: torch.Tensor, 
-        dict_key_root: str,
-    ) -> dict[str, torch.Tensor]:
-        """Calculate the MSE and MAE at each forecast step"""
-        losses = {}
-
-        mse_each_step = torch.mean((y_hat - y) ** 2, dim=0).cpu().numpy()
-        mae_each_step = torch.mean(torch.abs(y_hat - y), dim=0).cpu().numpy()
-
-        losses.update({f"MSE_{dict_key_root}/step_{i:03}": m for i, m in enumerate(mse_each_step)})
-        losses.update({f"MAE_{dict_key_root}/step_{i:03}": m for i, m in enumerate(mae_each_step)})
-
-        return losses
-
-    def _calculate_val_losses(
-        self, 
-        y: torch.Tensor, 
-        y_hat: torch.Tensor,
-    ) -> dict[str, torch.Tensor]:
-        """Calculate additional validation losses"""
-
-        losses = {}
-
-        if self.model.use_quantile_regression:
-            # Add fraction below each quantile for calibration
-            for i, quantile in enumerate(self.model.output_quantiles):
-                below_quant = y <= y_hat[..., i]
-                # Mask values small values, which are dominated by night
-                mask = y >= 0.01
-                losses[f"fraction_below_{quantile}_quantile"] = below_quant[mask].float().mean()
-
-            # Take median value for remaining metric calculations
-            y_hat = self.model._quantiles_to_prediction(y_hat)
-
-        # Log the loss at each time horizon
-        losses.update(self._step_mae_and_mse_metrics(y, y_hat, dict_key_root="horizon"))
-
-        # TODO: We don't need this each epoch. Doing this once is fine
-        # Log the persistance losses
-        y_persist = y[:, -1].unsqueeze(1).expand(-1, self.model.forecast_len)
-        losses["MAE_persistence/val"] = F.l1_loss(y_persist, y)
-        losses["MSE_persistence/val"] = F.mse_loss(y_persist, y)
-
-        # Log persistance loss at each time horizon
-        losses.update(self._step_mae_and_mse_metrics(y, y_persist, dict_key_root="persistence"))
-        return losses
-
-    def _training_accumulate_log(
-        self, 
-        batch: TensorBatch, 
-        losses: dict[str, torch.Tensor], 
-        y_hat: torch.Tensor,
-    ) -> None:
-        """Internal function to accumulate training batches and log results.
-
-        This is used when accummulating grad batches. Should make the variability in logged training
-        step metrics indpendent on whether we accumulate N batches of size B or just use a larger
-        batch size of N*B with no accumulaion.
-        """
-
-        losses = {k: v.detach().cpu() for k, v in losses.items()}
-        y_hat = y_hat.detach().cpu()
-
-        self._accumulated_metrics.append(losses)
-        self._accumulated_batches.append(batch)
-        self._accumulated_y_hat.append(y_hat)
-
-        if not self.trainer.fit_loop._should_accumulate():
-            losses = self._accumulated_metrics.flush()
-            batch = self._accumulated_batches.flush()
-            y_hat = self._accumulated_y_hat.flush()
-
-            self.log_dict(losses, on_step=True, on_epoch=True)
-
-
+    
     def training_step(self, batch: TensorBatch, batch_idx: int) -> torch.Tensor:
         """Run training step"""
         y_hat = self.model(batch)
@@ -192,172 +114,235 @@ class PVNetLightningModule(pl.LightningModule):
         losses = self._calculate_common_losses(y, y_hat)
         losses = {f"{k}/train": v for k, v in losses.items()}
 
-        self._training_accumulate_log(batch, losses, y_hat)
+        self.log_dict(losses, on_step=True, on_epoch=True)
 
         if self.model.use_quantile_regression:
             opt_target = losses["quantile_loss/train"]
         else:
             opt_target = losses["MAE/train"]
         return opt_target
-
-    def _log_forecast_plot(
+    
+    def _calculate_val_losses(
         self, 
-        batch: TensorBatch,
+        y: torch.Tensor, 
+        y_hat: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        """Calculate additional losses only run in validation"""
+
+        losses = {}
+
+        if self.model.use_quantile_regression:
+            metric_name = "val_fraction_below/fraction_below_{:.2f}_quantile"
+            # Add fraction below each quantile for calibration
+            for i, quantile in enumerate(self.model.output_quantiles):
+                below_quant = y <= y_hat[..., i]
+                # Mask values small values, which are dominated by night
+                mask = y >= 0.01
+                losses[metric_name.format(quantile)] = below_quant[mask].float().mean()
+
+        return losses
+
+    def _calculate_step_metrics(
+        self, 
+        y: torch.Tensor, 
         y_hat: torch.Tensor, 
-        accum_batch_num: int,
-    ) -> None:
-        """Log forecast plot to wandb"""
-        fig = plot_sample_forecasts(
-            batch,
-            y_hat,
-            quantiles=self.model.output_quantiles,
-            key_to_plot=self.model._target_key,
+    ) -> tuple[np.array, np.array]:
+        """Calculate the MAE and MSE at each forecast step"""
+
+        mae_each_step = torch.mean(torch.abs(y_hat - y), dim=0).cpu().numpy()
+        mse_each_step = torch.mean((y_hat - y) ** 2, dim=0).cpu().numpy()
+       
+        return mae_each_step, mse_each_step
+    
+    def _store_val_predictions(self, batch: TensorBatch, y_hat: torch.Tensor) -> None:
+        """Internally store the validation predictions"""
+        
+        taregt_key = self.model._target_key
+
+        y = batch[taregt_key][:, -self.model.forecast_len :].cpu().numpy()
+        y_hat = y_hat.cpu().numpy() 
+        ids = batch[f"{taregt_key}_id"].cpu().numpy()
+        init_times_utc = pd.to_datetime(
+            batch[f"{taregt_key}_time_utc"][:, self.model.history_len+1]
+            .cpu().numpy().astype("datetime64[ns]")
         )
 
-        plot_name = f"val_forecast_samples/batch_idx_{accum_batch_num}"
+        if self.model.use_quantile_regression:
+            p_levels = self.model.output_quantiles
+        else:
+            p_levels = [0.5]
+            y_hat = y_hat[..., None]
 
-        self.logger.experiment.log({plot_name: wandb.Image(fig)})
+        ds_preds_batch = xr.Dataset(
+            data_vars=dict(
+                y_hat=(["sample_num", "forecast_step",  "p_level"], y_hat),
+                y=(["sample_num", "forecast_step"], y),
+            ),
+            coords=dict(
+                ids=("sample_num", ids),
+                init_times_utc=("sample_num", init_times_utc),
+                p_level=p_levels,
+            ),
+        )
+        self.all_val_results.append(ds_preds_batch)
 
-        plt.close(fig)
+    def on_validation_epoch_start(self):
+        """Run at start of val period"""
+        # Set up stores which we will fill during validation
+        self.all_val_results: list[xr.Dataset] = []
+        self._val_horizon_maes: list[np.array] = []
+        if self.current_epoch==0:
+            self._val_persistence_horizon_maes: list[np.array] = []
+        
+        # Plot some sample forecasts
+        val_dataset = self.trainer.val_dataloaders.dataset
 
-    def _log_validation_results(
-        self, 
-        batch: TensorBatch, 
-        y_hat: torch.Tensor, 
-        accum_batch_num: int,
-    ) -> None:
-        """Append validation results to self.validation_epoch_results"""
+        plots_per_figure = 16
+        num_figures = 2
 
-        # Get truth values - shape: (batch_size, history_len + forecast_len)
-        y = batch[self.model._target_key][:, -self.model.forecast_len :].detach().cpu().numpy()
-        batch_size = y.shape[0]
+        for plot_num in range(num_figures):
+            idxs = np.arange(plots_per_figure) + plot_num * plots_per_figure
+            idxs = idxs[idxs<len(val_dataset)]
 
-        # Get predictions - shape: (batch_size, forecast_len, (quantiles))
-        y_hat = y_hat.detach().cpu().numpy()
+            if len(idxs)==0:
+                continue
 
-        # Get time_utc - shape: (batch_size, history_len + forecast_len)
-        time_utc_key = f"{self.model._target_key}_time_utc"
-        time_utc = batch[time_utc_key][:, -self.model.forecast_len :].detach().cpu().numpy()
+            batch = collate_fn([val_dataset[i] for i in idxs])
+            batch = self.transfer_batch_to_device(batch, self.device, dataloader_idx=0)
+            with torch.no_grad():
+                y_hat = self.model(batch)
+            
+            # Batch is adapted in the model forward method, but needs to be adapted here too
+            batch = self.model._adapt_batch(batch)
+            
+            fig = plot_sample_forecasts(
+                batch,
+                y_hat,
+                quantiles=self.model.output_quantiles,
+                key_to_plot=self.model._target_key,
+            )
 
-        # Get target ID and squueze from shape (batch_size, 1) to (batch_size,)
-        target_id = batch[f"{self.model._target_key}_id"].detach().cpu().numpy().squeeze()
+            plot_name = f"val_forecast_samples/sample_set_{plot_num}"
 
-        for i in range(batch_size):
-            y_i = y[i]
-            y_hat_i = y_hat[i]
-            time_utc_i = time_utc[i]
-            target_id_i = target_id[i]
+            self.logger.experiment.log({plot_name: wandb.Image(fig)})
 
-            results_dict = {
-                "y": y_i,
-                "time_utc": time_utc_i,
-            }
-            if self.model.use_quantile_regression:
-                quantile_results  = {}
-                for i, q in enumerate(self.model.output_quantiles):
-                    quantile_results[f"y_quantile_{q}"] = y_hat_i[:, i]
-                results_dict.update(quantile_results)
-            else:
-                results_dict["y_hat"] = y_hat_i
+            plt.close(fig)
 
-            results_df = pd.DataFrame(results_dict)
-            results_df["id"] = target_id_i
-            results_df["batch_idx"] = accum_batch_num
-            results_df["example_idx"] = i
-
-            self.validation_epoch_results.append(results_df)
-
-    def validation_step(self, batch: TensorBatch, batch_idx: int) -> dict[str, torch.Tensor]:
+    def validation_step(self, batch: TensorBatch, batch_idx: int) -> None:
         """Run validation step"""
-
-        accum_batch_num = batch_idx // self.trainer.accumulate_grad_batches
 
         y_hat = self.model(batch)
         # Batch is adapted in the model forward method, but needs to be adapted here too
         batch = self.model._adapt_batch(batch)
 
+        # Internally store the val predictions
+        self._store_val_predictions(batch, y_hat)
+
         y = batch[self.model._target_key][:, -self.model.forecast_len :]
 
-        if (batch_idx + 1) % self.trainer.accumulate_grad_batches == 0:
-            self._log_validation_results(batch, y_hat, accum_batch_num)
-
         losses = self._calculate_common_losses(y, y_hat)
+        losses = {f"{k}/val": v for k, v in losses.items()}
+
         losses.update(self._calculate_val_losses(y, y_hat))
 
-        # Store these to make horizon accuracy plot
-        self._horizon_maes.append(
-            {i: losses[f"MAE_horizon/step_{i:03}"] for i in range(self.model.forecast_len)}
-        )
+        # Calculate the horizon MAE/MSE metrics
+        if self.model.use_quantile_regression:
+            y_hat_mid = self.model._quantiles_to_prediction(y_hat)
+        else:
+            y_hat_mid = y_hat
 
-        logged_losses = {f"{k}/val": v for k, v in losses.items()}
+        mae_step, mse_step = self._calculate_step_metrics(y, y_hat_mid)
 
-        self.log_dict(logged_losses, on_step=False, on_epoch=True)
+        # Store to make horizon-MAE plot
+        self._val_horizon_maes.append(mae_step)
 
-        if isinstance(self.logger, pl.loggers.WandbLogger):
-            if accum_batch_num in [0, 1]:
-                # Store these temporarily under self
-                if not hasattr(self, "_val_y_hats"):
-                    self._val_y_hats = PredAccumulator()
-                    self._val_batches = BatchAccumulator(key_to_keep=self.model._target_key)
+        # Also add each step to logged metrics
+        losses.update({f"val_step_MAE/step_{i:03}": m for i, m in enumerate(mae_step)})
+        losses.update({f"val_step_MSE/step_{i:03}": m for i, m in enumerate(mse_step)})
 
-                self._val_y_hats.append(y_hat)
-                self._val_batches.append(batch)
+        # Calculate the persistance losses - we only need to do this once per training run
+        # not every epoch
+        if self.current_epoch==0:
+            y_persist = (
+                batch[self.model._target_key][:, -(self.model.forecast_len+1)]
+                .unsqueeze(1).expand(-1, self.model.forecast_len)
+            )
+            mae_step_persist, mse_step_persist = self._calculate_step_metrics(y, y_persist)
+            self._val_persistence_horizon_maes.append(mae_step_persist)
+            losses.update(
+                {
+                    "MAE/val_persistence": mae_step_persist.mean(), 
+                    "MSE/val_persistence": mse_step_persist.mean()
+                }
+            )
 
-                # If batch has accumulated plot it
-                if (batch_idx + 1) % self.trainer.accumulate_grad_batches == 0:
-                    y_hat = self._val_y_hats.flush()
-                    batch = self._val_batches.flush()
-
-                    self._log_forecast_plot(batch, y_hat, accum_batch_num)
-
-                    del self._val_y_hats
-                    del self._val_batches
-
-        return logged_losses
+        # Log the metrics
+        self.log_dict(losses, on_step=False, on_epoch=True)
 
     def on_validation_epoch_end(self) -> None:
         """Run on epoch end"""
 
-        validation_results_df = pd.concat(self.validation_epoch_results)
-        self.validation_epoch_results = []
+        ds_val_results = xr.concat(self.all_val_results, dim="sample_num")
+        self.all_val_results = []
 
-        horizon_maes_dict = self._horizon_maes.flush()
+        val_horizon_maes = np.mean(self._val_horizon_maes, axis=0)
+        self._val_horizon_maes = []
+
+        # We only run this on the first epoch
+        if self.current_epoch==0:
+            val_persistence_horizon_maes = np.mean(self._val_persistence_horizon_maes, axis=0)
+            self._val_persistence_horizon_maes = []
 
         if isinstance(self.logger, pl.loggers.WandbLogger):
-            # Log error distribution metrics
-            val_error = validation_results_df["y"] - validation_results_df["y_quantile_0.5"]
+            # Calculate and log extreme error metrics
+            val_error = ds_val_results["y"] - ds_val_results["y_hat"].sel(p_level=0.5)
+
+            # Factor out this part of the string for brevity below
+            s = "error_extremes/{}_percentile_median_forecast_error"
+            s_abs = "error_extremes/{}_percentile_median_forecast_absolute_error"
 
             extreme_error_metrics = {
-                "2nd_percentile_median_forecast_error": val_error.quantile(0.02),
-                "5th_percentile_median_forecast_error": val_error.quantile(0.05),
-                "95th_percentile_median_forecast_error": val_error.quantile(0.95),
-                "98th_percentile_median_forecast_error": val_error.quantile(0.98),
-                "95th_percentile_median_forecast_absolute_error": val_error.abs().quantile(0.95),
-                "98th_percentile_median_forecast_absolute_error": val_error.abs().quantile(0.98),
+                s.format("2nd"): val_error.quantile(0.02).item(),
+                s.format("5th"): val_error.quantile(0.05).item(),
+                s.format("95th"): val_error.quantile(0.95).item(),
+                s.format("98th"): val_error.quantile(0.98).item(),
+                s_abs.format("95th"): np.abs(val_error).quantile(0.95).item(),
+                s_abs.format("98th"): np.abs(val_error).quantile(0.98).item(),
             }
 
             self.log_dict(extreme_error_metrics, on_step=False, on_epoch=True)
 
-            # Save all validation results
-            if self.save_validation_results_csv:
-                with tempfile.TemporaryDirectory() as tempdir:
-                    filename = f"validation_results_{self.current_epoch}.csv"
-                    validation_results_df.to_csv(tempdir / filename, index=False)
+            # Optionally save all validation results - these are overridden each epoch
+            if self.save_all_validation_results:
+                # Add attributes
+                ds_val_results.attrs["epoch"] = self.current_epoch
 
-                    validation_artifact = wandb.Artifact(filename, type="dataset")
-                    validation_artifact.add_file(filename)
-
-                    wandb.log_artifact(validation_artifact)
-
+                # Save locally to the wandb output dir
+                wandb_log_dir = self.logger.experiment.dir
+                filepath = f"{wandb_log_dir}/validation_results.netcdf"
+                ds_val_results.to_netcdf(filepath)
+                
+                # Uplodad to wandb
+                self.logger.experiment.save(filepath, base_path=wandb_log_dir, policy="now")
+            
             # Create the horizon accuracy curve
-            per_step_losses = [[i, horizon_maes_dict[i]] for i in range(self.model.forecast_len)]
-            table = wandb.Table(data=per_step_losses, columns=["horizon_step", "MAE"])
-            plot = wandb.plot.line(table, "horizon_step", "MAE", title="Horizon loss curve")
-            wandb.log({"horizon_loss_curve": plot})
+            horizon_mae_plot = wandb_line_plot(
+                x=np.arange(self.model.forecast_len), 
+                y=val_horizon_maes,
+                xlabel="Horizon step",
+                ylabel="MAE",
+                title="Val horizon loss curve",
+            )
+            
+            wandb.log({"val_horizon_mae_plot": horizon_mae_plot})
 
-    def configure_optimizers(self):
-        """Configure the optimizers using learning rate found with LR finder if used"""
-        if self.lr is not None:
-            # Use learning rate found by learning rate finder callback
-            self._optimizer.lr = self.lr
-        return self._optimizer(self.model)
+            # Create persistence horizon accuracy curve but only on first epoch
+            if self.current_epoch==0:
+                persist_horizon_mae_plot = wandb_line_plot(
+                    x=np.arange(self.model.forecast_len), 
+                    y=val_persistence_horizon_maes,
+                    xlabel="Horizon step",
+                    ylabel="MAE",
+                    title="Val persistence horizon loss curve",
+                )
+                wandb.log({"persistence_val_horizon_mae_plot": persist_horizon_mae_plot})
