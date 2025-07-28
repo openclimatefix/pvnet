@@ -6,7 +6,7 @@ import pandas as pd
 import pylab
 import torch
 import wandb
-from ocf_data_sampler.torch_datasets.sample.base import TensorBatch
+from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 
 
 def wandb_line_plot(

@@ -1,6 +1,6 @@
 """Model which uses mutliple prediction heads"""
 import torch
-from ocf_data_sampler.torch_datasets.sample.base import TensorBatch
+from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from torch import nn
 
 from pvnet.models.base_model import BaseModel

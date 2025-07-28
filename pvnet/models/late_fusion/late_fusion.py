@@ -5,7 +5,7 @@ from collections import OrderedDict
 from typing import Any
 
 import torch
-from ocf_data_sampler.torch_datasets.sample.base import TensorBatch
+from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from omegaconf import DictConfig
 from torch import nn
 
