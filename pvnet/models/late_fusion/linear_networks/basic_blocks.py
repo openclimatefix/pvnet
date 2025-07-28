@@ -37,7 +37,7 @@ class AbstractLinearNetwork(nn.Module, metaclass=ABCMeta):
         pass
 
 
-class ResidualLinearBlock2(nn.Module):
+class ResidualLinearBlock(nn.Module):
     """Residual block of 'full pre-activation' similar to the block in figure 4(e) of [1].
 
     This was the best performing residual block tested in the study. This implementation differs

@@ -1,12 +1,7 @@
-import torch
-from torch import nn
-
 from pvnet.models.late_fusion.site_encoders.encoders import (
     SimpleLearnedAggregator,
     SingleAttentionNetwork,
 )
-
-import pytest
 
 
 def _test_model_forward(batch, model_class, kwargs, batch_size):

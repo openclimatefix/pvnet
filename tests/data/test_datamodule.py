@@ -5,10 +5,8 @@ import torch
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pvnet.data import (
-    SitePresavedDataModule, SiteStreamedDataModule,
-    UKRegionalPresavedDataModule, UKRegionalStreamedDataModule,
-)
+from pvnet.data import SitePresavedDataModule, SiteStreamedDataModule, UKRegionalPresavedDataModule
+
 
 
 @pytest.fixture

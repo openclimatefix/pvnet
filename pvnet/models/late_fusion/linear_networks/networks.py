@@ -6,11 +6,11 @@ from torch import nn
 
 from pvnet.models.late_fusion.linear_networks.basic_blocks import (
     AbstractLinearNetwork,
-    ResidualLinearBlock2,
+    ResidualLinearBlock,
 )
 
 
-class ResFCNet2(AbstractLinearNetwork):
+class ResFCNet(AbstractLinearNetwork):
     """Fully connected deep network based on ResNet architecture.
 
     This architecture is similar to
@@ -46,7 +46,7 @@ class ResFCNet2(AbstractLinearNetwork):
 
         for i in range(n_res_blocks):
             model += [
-                ResidualLinearBlock2(
+                ResidualLinearBlock(
                     in_features=fc_hidden_features,
                     n_layers=res_block_layers,
                     dropout_frac=dropout_frac,

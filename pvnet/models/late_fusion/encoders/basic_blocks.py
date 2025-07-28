@@ -38,7 +38,7 @@ class AbstractNWPSatelliteEncoder(nn.Module, metaclass=ABCMeta):
         pass
 
 
-class ResidualConv3dBlock2(nn.Module):
+class ResidualConv3dBlock(nn.Module):
     """Residual block of 'full pre-activation' similar to the block in figure 4(e) of [1].
 
     This was the best performing residual block tested in the study. This implementation differs

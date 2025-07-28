@@ -7,7 +7,7 @@ import torch
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from torch import nn
 
-from pvnet.models.late_fusion.linear_networks.networks import ResFCNet2
+from pvnet.models.late_fusion.linear_networks.networks import ResFCNet
 from pvnet.models.late_fusion.site_encoders.basic_blocks import AbstractSitesEncoder
 
 
@@ -48,7 +48,7 @@ class SimpleLearnedAggregator(AbstractSitesEncoder):
 
         # Network used to encode each PV site sequence
         self._value_encoder = nn.Sequential(
-            ResFCNet2(
+            ResFCNet(
                 in_features=sequence_length,
                 out_features=value_dim,
                 fc_hidden_features=value_dim,
@@ -65,7 +65,7 @@ class SimpleLearnedAggregator(AbstractSitesEncoder):
         )
 
         # Network used to process weighted average
-        self.output_network = ResFCNet2(
+        self.output_network = ResFCNet(
             in_features=value_dim,
             out_features=out_features,
             fc_hidden_features=value_dim,
@@ -173,7 +173,7 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
             self.value_id_embedding = nn.Embedding(num_sites, id_embed_dim)
 
         self._value_encoder = nn.Sequential(
-            ResFCNet2(
+            ResFCNet(
                 in_features=sequence_length * self.num_channels
                 + int(use_id_in_value) * id_embed_dim,
                 out_features=out_features,
@@ -185,7 +185,7 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
         )
 
         self._key_encoder = nn.Sequential(
-            ResFCNet2(
+            ResFCNet(
                 in_features=id_embed_dim + sequence_length * self.num_channels,
                 out_features=kdim,
                 fc_hidden_features=id_embed_dim + sequence_length * self.num_channels,

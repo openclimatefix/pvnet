@@ -327,14 +327,12 @@ def sample_site_datamodule():
 
 @pytest.fixture()
 def sample_batch(sample_datamodule):
-    batch = next(iter(sample_datamodule.train_dataloader()))
-    return batch
+    return next(iter(sample_datamodule.train_dataloader()))
 
 
 @pytest.fixture()
 def sample_satellite_batch(sample_batch):
-    sat_image = sample_batch["satellite_actual"]
-    return torch.swapaxes(sat_image, 1, 2)
+    return torch.swapaxes(sample_batch["satellite_actual"], 1, 2)
 
 
 @pytest.fixture()
@@ -359,8 +357,7 @@ def sample_pv_batch():
 
 @pytest.fixture()
 def sample_site_batch(sample_site_datamodule):
-    batch = next(iter(sample_site_datamodule.train_dataloader()))
-    return batch
+    return next(iter(sample_site_datamodule.train_dataloader()))
 
 
 @pytest.fixture()
@@ -432,7 +429,7 @@ def raw_late_fusion_model_kwargs(model_minutes_kwargs):
         # ocf-data-sampler doesn't supprt PV site inputs yet
         pv_encoder=None,
         output_network=dict(
-            _target_="pvnet.models.late_fusion.linear_networks.networks.ResFCNet2",
+            _target_="pvnet.models.late_fusion.linear_networks.networks.ResFCNet",
             _partial_=True,
             fc_hidden_features=128,
             n_res_blocks=6,
@@ -472,7 +469,7 @@ def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs):
         add_image_embedding_channel=False,
         pv_encoder=None,
         output_network=dict(
-            _target_="pvnet.models.late_fusion.linear_networks.networks.ResFCNet2",
+            _target_="pvnet.models.late_fusion.linear_networks.networks.ResFCNet",
             _partial_=True,
             fc_hidden_features=128,
             n_res_blocks=6,

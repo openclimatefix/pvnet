@@ -59,12 +59,20 @@ else:
 # Re-find the model components in the new package structure
 if model_config.get("nwp_encoders_dict", None) is not None:
     for k, v in model_config["nwp_encoders_dict"].items():
-        v["_target_"] = v["_target_"].replace("multimodal", "late_fusion")
+        v["_target_"] = (
+            v["_target_"]
+                .replace("multimodal", "late_fusion")
+                .replace("ResConv3DNet2", "ResConv3DNet")
+        )
+        
 
 for component in ["sat_encoder", "pv_encoder", "output_network"]:
     if model_config.get(component, None) is not None:
         model_config[component]["_target_"] = (
-            model_config[component]["_target_"].replace("multimodal", "late_fusion")
+            model_config[component]["_target_"]
+                .replace("multimodal", "late_fusion")
+                .replace("ResConv3DNet2", "ResConv3DNet")
+                .replace("ResFCNet2", "ResFCNet")
         )
     
 with open(f"{local_dir}/{MODEL_CONFIG_NAME}", "w") as f:

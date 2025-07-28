@@ -1,6 +1,6 @@
 from pvnet.models.late_fusion.encoders.encoders3d import (
     DefaultPVNet,
-    ResConv3DNet2,
+    ResConv3DNet,
 )
 
 
@@ -22,8 +22,8 @@ def test_defaultpvnet_forward(sample_satellite_batch, encoder_model_kwargs):
     _test_model_forward(sample_satellite_batch, DefaultPVNet, encoder_model_kwargs)
 
 
-def test_resconv3dnet2_forward(sample_satellite_batch, encoder_model_kwargs):
-    _test_model_forward(sample_satellite_batch, ResConv3DNet2, encoder_model_kwargs)
+def test_resconv3dnet_forward(sample_satellite_batch, encoder_model_kwargs):
+    _test_model_forward(sample_satellite_batch, ResConv3DNet, encoder_model_kwargs)
 
 
 # Test model backward on all models
@@ -31,5 +31,5 @@ def test_defaultpvnet_backward(sample_satellite_batch, encoder_model_kwargs):
     _test_model_backward(sample_satellite_batch, DefaultPVNet, encoder_model_kwargs)
 
 
-def test_resconv3dnet2_backward(sample_satellite_batch, encoder_model_kwargs):
-    _test_model_backward(sample_satellite_batch, ResConv3DNet2, encoder_model_kwargs)
+def test_resconv3dnet_backward(sample_satellite_batch, encoder_model_kwargs):
+    _test_model_backward(sample_satellite_batch, ResConv3DNet, encoder_model_kwargs)

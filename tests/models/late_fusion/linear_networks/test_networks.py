@@ -1,4 +1,4 @@
-from pvnet.models.late_fusion.linear_networks.networks import ResFCNet2
+from pvnet.models.late_fusion.linear_networks.networks import ResFCNet
 import pytest
 import torch
 from collections import OrderedDict
@@ -45,9 +45,9 @@ def _test_model_backward(batch, model_class, model_kwargs):
 
 
 # Test model forward on all models
-def test_resfcnet2_forward(multiple_batch_types, linear_network_kwargs):
-    _test_model_forward(multiple_batch_types, ResFCNet2, linear_network_kwargs)
+def test_resfcnet_forward(multiple_batch_types, linear_network_kwargs):
+    _test_model_forward(multiple_batch_types, ResFCNet, linear_network_kwargs)
 
 
-def test_resfcnet2_backward(simple_linear_batch, linear_network_kwargs):
-    _test_model_backward(simple_linear_batch, ResFCNet2, linear_network_kwargs)
+def test_resfcnet_backward(simple_linear_batch, linear_network_kwargs):
+    _test_model_backward(simple_linear_batch, ResFCNet, linear_network_kwargs)

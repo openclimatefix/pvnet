@@ -6,7 +6,7 @@ from torch import nn
 
 from pvnet.models.late_fusion.encoders.basic_blocks import (
     AbstractNWPSatelliteEncoder,
-    ResidualConv3dBlock2,
+    ResidualConv3dBlock,
 )
 
 
@@ -102,7 +102,7 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
         return self.final_block(out)
 
 
-class ResConv3DNet2(AbstractNWPSatelliteEncoder):
+class ResConv3DNet(AbstractNWPSatelliteEncoder):
     """3D convolutional network based on ResNet architecture.
 
     The residual blocks are implemented based on the best performing block in [1].
@@ -150,7 +150,7 @@ class ResConv3DNet2(AbstractNWPSatelliteEncoder):
         for i in range(n_res_blocks):
             model.extend(
                 [
-                    ResidualConv3dBlock2(
+                    ResidualConv3dBlock(
                         in_channels=hidden_channels,
                         n_layers=res_block_layers,
                         dropout_frac=dropout_frac,

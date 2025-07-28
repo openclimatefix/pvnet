@@ -59,7 +59,7 @@ model:
   #--------------------------------------------
 
   output_network:
-    _target_: pvnet.models.late_fusion.linear_networks.networks.ResFCNet2
+    _target_: pvnet.models.late_fusion.linear_networks.networks.ResFCNet
     _partial_: True
     fc_hidden_features: 128
     n_res_blocks: 6
