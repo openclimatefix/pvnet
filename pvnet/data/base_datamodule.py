@@ -7,7 +7,6 @@ from lightning.pytorch import LightningDataModule
 from ocf_data_sampler.numpy_sample.collate import stack_np_samples_into_batch
 from ocf_data_sampler.numpy_sample.common_types import NumpySample, TensorBatch
 from ocf_data_sampler.torch_datasets.sample.base import SampleBase, batch_to_tensor
-
 from torch.utils.data import DataLoader, Dataset, Subset
 
 

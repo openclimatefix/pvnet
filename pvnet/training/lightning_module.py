@@ -1,5 +1,4 @@
 """Pytorch lightning module for training PVNet models"""
-import tempfile
 
 import lightning.pytorch as pl
 import matplotlib.pyplot as plt
@@ -16,7 +15,6 @@ from pvnet.data.base_datamodule import collate_fn
 from pvnet.models.base_model import BaseModel
 from pvnet.optimizers import AbstractOptimizer
 from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot
-
 
 
 class PVNetLightningModule(pl.LightningModule):

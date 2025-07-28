@@ -95,9 +95,7 @@ def train(config: DictConfig) -> None:
 
                 # Save the run results to the expected parent folder but with the folder name
                 # set by the wandb ID
-                save_dir = "/".join(
-                    callback.dirpath.split("/")[:-1] + [wandb_id]
-                )
+                save_dir = "/".join(callback.dirpath.split("/")[:-1] + [wandb_id])
 
                 callback.dirpath = save_dir
                 
