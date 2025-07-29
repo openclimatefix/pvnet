@@ -1,8 +1,8 @@
 """Script to migrate old PVNet models (v4.1) which are hosted on huggingface to current version"""
 import datetime
 import os
-
 from importlib.metadata import version
+
 import torch
 import yaml
 from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi

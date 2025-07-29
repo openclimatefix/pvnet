@@ -4,10 +4,10 @@ import logging
 import os
 import shutil
 import time
+from importlib.metadata import version
 from pathlib import Path
 
 import hydra
-from importlib.metadata import version
 import torch
 import yaml
 from huggingface_hub import ModelCard, ModelCardData, snapshot_download
