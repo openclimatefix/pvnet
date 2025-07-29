@@ -9,11 +9,12 @@ import torch
 import hydra
 
 from ocf_data_sampler.torch_datasets.sample.site import SiteSample
-from pvnet.data.base_datamodule import collate_fn
-from ocf_data_sampler.numpy_sample.common_types import NumpySample, TensorBatch
+from ocf_data_sampler.torch_datasets.datasets import SitesDataset
+from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configuration
 
-from pvnet.data import  UKRegionalStreamedDataModule
+from pvnet.data.base_datamodule import collate_fn
+from pvnet.data import  UKRegionalStreamedDataModule, SiteStreamedDataModule
 from pvnet.models import LateFusionModel
 
 
@@ -50,7 +51,7 @@ def session_tmp_path(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def sat_zarr_path(session_tmp_path):
+def sat_zarr_path(session_tmp_path) -> str:
     variables = [
         "IR_016", "IR_039", "IR_087", "IR_097", "IR_108", "IR_120",
         "IR_134", "VIS006", "VIS008", "WV_062", "WV_073",
@@ -83,12 +84,12 @@ def sat_zarr_path(session_tmp_path):
 
 
 @pytest.fixture(scope="session")
-def ukv_zarr_path(session_tmp_path):
+def ukv_zarr_path(session_tmp_path) -> str:
     init_times = pd.date_range(start="2023-01-01 00:00", freq="180min", periods=24 * 7)
     variables = ["si10", "dswrf", "t", "prate"]
     steps = pd.timedelta_range("0h", "24h", freq="1h")
-    x = np.linspace(-239_000, 857_000, 50)
-    y = np.linspace(-183_000, 1225_000, 100)
+    x = np.linspace(-239_000, 857_000, 200)
+    y = np.linspace(-183_000, 1225_000, 200)
     
     coords = (
         ("init_time", init_times),
@@ -113,7 +114,7 @@ def ukv_zarr_path(session_tmp_path):
 
 
 @pytest.fixture(scope="session")
-def ecmwf_zarr_path(session_tmp_path):
+def ecmwf_zarr_path(session_tmp_path) -> str:
     init_times = pd.date_range(start="2023-01-01 00:00", freq="6h", periods=24 * 7)
     variables = ["t2m", "dswrf", "mcc"]
     steps = pd.timedelta_range("0h", "14h", freq="1h")
@@ -143,7 +144,7 @@ def ecmwf_zarr_path(session_tmp_path):
 
 
 @pytest.fixture(scope="session")
-def gsp_zarr_path(session_tmp_path):
+def gsp_zarr_path(session_tmp_path) -> str:
     times = pd.date_range("2023-01-01 00:00", "2023-01-02 00:00", freq="30min")
     gsp_ids = np.arange(0, 318)
     capacity = np.ones((len(times), len(gsp_ids)))
@@ -166,24 +167,89 @@ def gsp_zarr_path(session_tmp_path):
 
 
 @pytest.fixture(scope="session")
-def data_config_path(session_tmp_path, sat_zarr_path, ukv_zarr_path, ecmwf_zarr_path, gsp_zarr_path):  
+def site_data_paths(session_tmp_path) -> tuple[str, str]:
+
+    times = pd.date_range("2023-01-01 00:00", "2023-01-02 00:00", freq="15min")
+    site_ids = np.arange(0, 10)
+
+    capacity = np.ones(len(site_ids))
+    lons = np.linspace(-4, -3, len(site_ids))
+    lats = np.linspace(51, 52, len(site_ids))
+
+    coords = (("time_utc", times), ("site_id", site_ids))
+
+    generation_data = np.random.uniform(
+        low=0, 
+        high=200, 
+        size=tuple(len(coord_values) for _, coord_values in coords)
+    ).astype(np.float32)
+
+    ds_gen = xr.DataArray(generation_data, coords=coords).to_dataset(name="generation_kw")
+
+    df_meta = pd.DataFrame(
+        {
+            "site_id": site_ids,
+            "capacity_kwp": capacity,
+            "longitude": lons,
+            "latitude": lats,
+        }
+    )
+
+    generation_data_path = session_tmp_path / f"sites_data.netcdf"
+    metadata_path = session_tmp_path / f"sites_metadata.csv"
+    ds_gen.to_netcdf(generation_data_path)
+    df_meta.to_csv(metadata_path, index=False)
+
+    return generation_data_path, metadata_path
+
+
+@pytest.fixture(scope="session")
+def uk_data_config_path(
+    session_tmp_path, 
+    sat_zarr_path, 
+    ukv_zarr_path, 
+    ecmwf_zarr_path, 
+    gsp_zarr_path
+) -> str:  
     
     # Populate the config with the generated zarr paths
-    config = load_yaml_configuration(f"{_top_test_directory}/test_data/data_config.yaml")
+    config = load_yaml_configuration(f"{_top_test_directory}/test_data/uk_data_config.yaml")
     config.input_data.nwp["ukv"].zarr_path = str(ukv_zarr_path)
     config.input_data.nwp["ecmwf"].zarr_path = str(ecmwf_zarr_path)
     config.input_data.satellite.zarr_path = str(sat_zarr_path)
     config.input_data.gsp.zarr_path = str(gsp_zarr_path)
 
-    filename = f"{session_tmp_path}/data_config.yaml"
+    filename = f"{session_tmp_path}/uk_data_config.yaml"
     save_yaml_configuration(config, filename)
     return filename
 
 
 @pytest.fixture(scope="session")
-def uk_streamed_datamodule(data_config_path):
+def site_data_config_path(
+    session_tmp_path, 
+    sat_zarr_path, 
+    ukv_zarr_path, 
+    ecmwf_zarr_path, 
+    site_data_paths,
+) -> str:  
+    
+    # Populate the config with the generated zarr paths
+    config = load_yaml_configuration(f"{_top_test_directory}/test_data/site_data_config.yaml")
+    config.input_data.nwp["ukv"].zarr_path = str(ukv_zarr_path)
+    config.input_data.nwp["ecmwf"].zarr_path = str(ecmwf_zarr_path)
+    config.input_data.satellite.zarr_path = str(sat_zarr_path)
+    config.input_data.site.file_path = str(site_data_paths[0])
+    config.input_data.site.metadata_file_path = str(site_data_paths[1])
+
+    filename = f"{session_tmp_path}/site_data_config.yaml"
+    save_yaml_configuration(config, filename)
+    return filename
+
+
+@pytest.fixture(scope="session")
+def uk_streamed_datamodule(uk_data_config_path) -> UKRegionalStreamedDataModule:
     dm = UKRegionalStreamedDataModule(
-        configuration=data_config_path,
+        configuration=uk_data_config_path,
         batch_size=2,
         num_workers=0,
         prefetch_factor=None,
@@ -192,118 +258,38 @@ def uk_streamed_datamodule(data_config_path):
     return dm
 
 
-@pytest.fixture()
-def sample_batch(uk_streamed_datamodule) -> TensorBatch:
-    return next(iter(uk_streamed_datamodule.train_dataloader()))
-
-
-@pytest.fixture()
-def sample_satellite_batch(sample_batch) -> torch.Tensor:
-    return torch.swapaxes(sample_batch["satellite_actual"], 1, 2).float()
-
-
-def generate_synthetic_site_sample(
-    site_id: int, 
-    variation_index: int, 
-    add_noise: bool,
-) -> NumpySample:
-    """Generate synthetic site sample that matches site sample structure
-
-    Args:
-        site_id: ID for the site
-        variation_index: Index to use for coordinate variations
-        add_noise: Whether to add random noise to data variables
-    """
-    now = pd.Timestamp.now(tz=None)
-
-    # Create time and space coordinates
-    site_time_coords = pd.date_range(start=now - pd.Timedelta("48h"), periods=197, freq="15min")
-    nwp_time_coords = pd.date_range(start=now, periods=50, freq="1h")
-    nwp_lat = np.linspace(50.0, 60.0, 24)
-    nwp_lon = np.linspace(-10.0, 2.0, 24)
-    nwp_channels = np.array(['t2m', 'ssrd', 'ssr', 'sp', 'r', 'tcc', 'u10', 'v10'], dtype='<U5')
-
-    # Generate NWP data
-    nwp_init_time = pd.date_range(start=now - pd.Timedelta("12h"), periods=1, freq="12h").repeat(50)
-    nwp_steps = pd.timedelta_range(start=pd.Timedelta(0), periods=50, freq="1h")
-    nwp_data = np.random.randn(50, 8, 24, 24).astype(np.float32)
-
-    # Generate site data and solar position
-    site_data = np.random.rand(197)
-    site_lat = 52.5 + variation_index * 0.1
-    site_lon = -1.5 - variation_index * 0.05
-    site_capacity = 10000.0 * (1.0 + variation_index * 0.01)
-
-    # Calculate time features
-    days_since_jan1 = (site_time_coords.dayofyear - 1) / 365.0
-    hours_since_midnight = (site_time_coords.hour + site_time_coords.minute / 60.0) / 24.0
-
-    # Calculate trigonometric features
-    site_solar_azimuth = np.linspace(0, 360, 197)
-    site_solar_elevation = 15 * np.sin(np.linspace(0, 2*np.pi, 197))
-    trig_features = {
-        "date_sin": np.sin(2 * np.pi * days_since_jan1),
-        "date_cos": np.cos(2 * np.pi * days_since_jan1),
-        "time_sin": np.sin(2 * np.pi * hours_since_midnight),
-        "time_cos": np.cos(2 * np.pi * hours_since_midnight),
-    }
-
-    # Create xarray Dataset with all coordinates
-    site_data_ds = xr.Dataset(
-        data_vars={
-            "nwp-ecmwf": (["nwp-ecmwf__target_time_utc", "nwp-ecmwf__channel",
-                           "nwp-ecmwf__longitude", "nwp-ecmwf__latitude"], nwp_data),
-            "site": (["site__time_utc"], site_data),
-        },
-        coords={
-            # NWP coordinates
-            "nwp-ecmwf__latitude": nwp_lat,
-            "nwp-ecmwf__longitude": nwp_lon,
-            "nwp-ecmwf__channel": nwp_channels,
-            "nwp-ecmwf__target_time_utc": nwp_time_coords,
-            "nwp-ecmwf__init_time_utc": (["nwp-ecmwf__target_time_utc"], nwp_init_time),
-            "nwp-ecmwf__step": (["nwp-ecmwf__target_time_utc"], nwp_steps),
-
-            # Site coordinates
-            "site__site_id": np.int32(site_id),
-            "site__latitude": site_lat,
-            "site__longitude": site_lon,
-            "site__capacity_kwp": site_capacity,
-            "site__time_utc": site_time_coords,
-            "site__solar_azimuth": (["site__time_utc"], site_solar_azimuth),
-            "site__solar_elevation": (["site__time_utc"], site_solar_elevation),
-            **{f"site__{k}": (["site__time_utc"], v) for k, v in trig_features.items()}
-        }
+@pytest.fixture(scope="session")
+def site_streamed_datamodule(site_data_config_path) -> SiteStreamedDataModule:
+    dm = SiteStreamedDataModule(
+        configuration=site_data_config_path,
+        batch_size=2,
+        num_workers=0,
+        prefetch_factor=None,
     )
-
-    # Add random noise to data variables if stated
-    if add_noise:
-        for var in ["site", "nwp-ecmwf"]:
-            noise_shape = site_data_ds[var].shape
-            noise = np.random.randn(*noise_shape).astype(site_data_ds[var].dtype) * 0.01
-            site_data_ds[var] = site_data_ds[var] + noise
-
-    return SiteSample(site_data_ds).to_numpy()
+    dm.setup(stage="fit")
+    return dm
 
 
 @pytest.fixture(scope="session")
-def sample_site_batch() -> TensorBatch:
-    # Generate and save synthetic samples
-    samples  = []
-    for i in range(2):
-        samples.append(
-            generate_synthetic_site_sample(
-                site_id=i % 3 + 1,
-                variation_index=i,
-                add_noise=True
-            )
-        )
-    return collate_fn(samples)
+def uk_batch(uk_streamed_datamodule) -> TensorBatch:
+    return next(iter(uk_streamed_datamodule.train_dataloader()))
+
+
+@pytest.fixture(scope="session")
+def site_batch(site_data_config_path) -> TensorBatch:
+    dataset = SitesDataset(site_data_config_path)
+    return collate_fn([SiteSample(dataset[i]).to_numpy() for i in range(2)])
+
+
+@pytest.fixture(scope="session")
+def satellite_batch_component(uk_batch) -> torch.Tensor:
+    return torch.swapaxes(uk_batch["satellite_actual"], 1, 2).float()
 
 
 @pytest.fixture()
 def model_minutes_kwargs() -> dict:
     return dict(forecast_minutes=480, history_minutes=60)
+
 
 @pytest.fixture()
 def encoder_model_kwargs() -> dict:

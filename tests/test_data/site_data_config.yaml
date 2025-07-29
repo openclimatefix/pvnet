@@ -1,0 +1,128 @@
+general:
+  description: Test config for PVNet
+  name: pvnet_test
+
+input_data:
+
+  site:
+    file_path: set_in_temp_file
+    metadata_file_path: set_in_temp_file
+    interval_start_minutes: -60
+    interval_end_minutes: 480
+    time_resolution_minutes: 15
+    dropout_timedeltas_minutes: []
+    dropout_fraction: 0
+
+  nwp:
+    ukv:
+      provider: ukv
+      zarr_path: set_in_temp_file
+      interval_start_minutes: -120
+      interval_end_minutes: 480
+      time_resolution_minutes: 60
+      channels: ["si10", "dswrf", "t", "prate"]
+      image_size_pixels_height: 24
+      image_size_pixels_width: 24
+      dropout_timedeltas_minutes: [-180]
+      dropout_fraction: 1.0
+      max_staleness_minutes: null
+      normalisation_constants:
+        si10:
+          mean: 1
+          std: 1
+        dswrf:
+          mean: 1
+          std: 1
+        t:
+          mean: 1
+          std: 1
+        prate:
+          mean: 1
+          std: 1
+
+    ecmwf:
+      provider: ecmwf
+      zarr_path: set_in_temp_file
+      interval_start_minutes: -120
+      interval_end_minutes: 480
+      time_resolution_minutes: 60
+      channels: ["t2m", "dswrf", "mcc"]
+      image_size_pixels_height: 12
+      image_size_pixels_width: 12
+      dropout_timedeltas_minutes: [-180]
+      dropout_fraction: 1.0
+      max_staleness_minutes: null
+      normalisation_constants:
+        t2m:
+          mean: 1
+          std: 1
+        dswrf:
+          mean: 1
+          std: 1
+        mcc:
+          mean: 1
+          std: 1
+
+  satellite:
+    zarr_path: set_in_temp_file
+    interval_start_minutes: -30
+    interval_end_minutes: 0
+    time_resolution_minutes: 5
+
+    image_size_pixels_height: 24
+    image_size_pixels_width: 24
+    dropout_timedeltas_minutes: []
+    dropout_fraction: 0
+
+    channels:
+      - IR_016
+      - IR_039
+      - IR_087
+      - IR_097
+      - IR_108
+      - IR_120
+      - IR_134
+      - VIS006
+      - VIS008
+      - WV_062
+      - WV_073
+
+    normalisation_constants:
+      IR_016:
+        mean: 1
+        std: 1
+      IR_039:
+        mean: 1
+        std: 1
+      IR_087:
+        mean: 1
+        std: 1
+      IR_097:
+        mean: 1
+        std: 1
+      IR_108:
+        mean: 1
+        std: 1
+      IR_120:
+        mean: 1
+        std: 1
+      IR_134:
+        mean: 1
+        std: 1
+      VIS006:
+        mean: 1
+        std: 1
+      VIS008:
+        mean: 1
+        std: 1
+      WV_062:
+        mean: 1
+        std: 1
+      WV_073:
+        mean: 1
+        std: 1
+
+  solar_position:
+    interval_start_minutes: -60
+    interval_end_minutes: 480
+    time_resolution_minutes: 15

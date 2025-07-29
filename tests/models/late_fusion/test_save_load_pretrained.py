@@ -1,73 +1,30 @@
 from importlib.metadata import version
 from pvnet.models import BaseModel
 import pvnet.model_cards
-import yaml
 
 
 card_path = f"{pvnet.model_cards.__path__[0]}/empty_model_card_template.md"
 
 
-def test_save_pretrained(tmp_path, late_fusion_model, raw_late_fusion_model_kwargs):
-    # Get sample directory from the datamodule
-
-    # Create config with matching structure
-    data_config = {
-        "general": {
-            "description": "Config for training the saved PVNet model",
-            "name": "test_pvnet"
-        },
-        "input_data": {
-            "gsp": {
-                "zarr_path": "placeholder.zarr",
-                "interval_start_minutes": -120,
-                "interval_end_minutes": 480,
-                "time_resolution_minutes": 30,
-                "dropout_timedeltas_minutes": None,
-                "dropout_fraction": 0
-            },
-            "nwp": {
-                "ukv": {
-                    "provider": "ukv",
-                    "zarr_path": "placeholder.zarr",
-                    "interval_start_minutes": -120,
-                    "interval_end_minutes": 480,
-                    "time_resolution_minutes": 60,
-                    "channels": ["t", "dswrf", "dlwrf"],
-                    "image_size_pixels_height": 24,
-                    "image_size_pixels_width": 24,
-                    "dropout_timedeltas_minutes": None,
-                    "dropout_fraction": 0,
-                    "max_staleness_minutes": None
-                }
-            },
-            "satellite": {
-                "zarr_path": "placeholder.zarr",
-                "interval_start_minutes": -30,
-                "interval_end_minutes": 0,
-                "time_resolution_minutes": 5,
-                "channels": ["IR_016", "IR_039", "IR_087"],
-                "image_size_pixels_height": 24,
-                "image_size_pixels_width": 24,
-                "dropout_timedeltas_minutes": None,
-                "dropout_fraction": 0
-            }
-        },
-    }
-
-    data_config_path = f"{tmp_path}/_data_config.yaml"
-    with open(data_config_path, 'w') as outfile:
-        yaml.dump(data_config, outfile, default_flow_style=False)
+def test_save_pretrained(
+    tmp_path, 
+    late_fusion_model, 
+    raw_late_fusion_model_kwargs, 
+    uk_data_config_path
+):
 
     # Construct the model config
-    model_config = {"_target_": "pvnet.models.LateFusionModel"}
-    model_config.update(raw_late_fusion_model_kwargs)
+    model_config = {
+        "_target_": "pvnet.models.LateFusionModel",
+        **raw_late_fusion_model_kwargs,
+    }
 
     # Save the model
     model_output_dir = f"{tmp_path}/saved_model"
     late_fusion_model.save_pretrained(
         save_directory=model_output_dir,
         model_config=model_config,
-        data_config_path=data_config_path,
+        data_config_path=uk_data_config_path,
         wandb_repo="test",
         wandb_ids="abc",
         card_template_path=card_path,

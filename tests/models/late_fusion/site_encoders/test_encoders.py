@@ -14,14 +14,14 @@ def _test_model_backward(batch, model_class, kwargs):
     y.sum().backward()
 
 
-def test_singleattentionnetwork_forward(sample_site_batch, site_encoder_model_kwargs):
+def test_singleattentionnetwork_forward(site_batch, site_encoder_model_kwargs):
     _test_model_forward(
-        sample_site_batch,
+        site_batch,
         SingleAttentionNetwork,
         site_encoder_model_kwargs,
         batch_size=2,
     )
 
 
-def test_singleattentionnetwork_backward(sample_site_batch, site_encoder_model_kwargs):
-    _test_model_backward(sample_site_batch, SingleAttentionNetwork, site_encoder_model_kwargs)
+def test_singleattentionnetwork_backward(site_batch, site_encoder_model_kwargs):
+    _test_model_backward(site_batch, SingleAttentionNetwork, site_encoder_model_kwargs)

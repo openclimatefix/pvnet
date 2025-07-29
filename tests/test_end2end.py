@@ -17,5 +17,5 @@ def test_model_trainer_fit(late_fusion_model, uk_streamed_datamodule):
     y = late_fusion_model(batch)
 
     # Train the model for one batch
-    trainer = lightning.pytorch.trainer.trainer.Trainer(fast_dev_run=True, accelerator="cpu")
+    trainer = lightning.Trainer(fast_dev_run=True, accelerator="cpu")
     trainer.fit(model=ligtning_model, datamodule=uk_streamed_datamodule)

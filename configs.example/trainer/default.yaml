@@ -1,4 +1,4 @@
-_target_: lightning.pytorch.trainer.trainer.Trainer
+_target_: lightning.Trainer
 
 # set `1` to train on GPU, `0` to train on CPU only
 accelerator: auto

@@ -15,18 +15,18 @@ def _test_model_backward(batch, model_class, model_kwargs):
 
 
 # Test model forward on all models
-def test_defaultpvnet_forward(sample_satellite_batch, encoder_model_kwargs):
-    _test_model_forward(sample_satellite_batch, DefaultPVNet, encoder_model_kwargs)
+def test_defaultpvnet_forward(satellite_batch_component, encoder_model_kwargs):
+    _test_model_forward(satellite_batch_component, DefaultPVNet, encoder_model_kwargs)
 
 
-def test_resconv3dnet_forward(sample_satellite_batch, encoder_model_kwargs):
-    _test_model_forward(sample_satellite_batch, ResConv3DNet, encoder_model_kwargs)
+def test_resconv3dnet_forward(satellite_batch_component, encoder_model_kwargs):
+    _test_model_forward(satellite_batch_component, ResConv3DNet, encoder_model_kwargs)
 
 
 # Test model backward on all models
-def test_defaultpvnet_backward(sample_satellite_batch, encoder_model_kwargs):
-    _test_model_backward(sample_satellite_batch, DefaultPVNet, encoder_model_kwargs)
+def test_defaultpvnet_backward(satellite_batch_component, encoder_model_kwargs):
+    _test_model_backward(satellite_batch_component, DefaultPVNet, encoder_model_kwargs)
 
 
-def test_resconv3dnet_backward(sample_satellite_batch, encoder_model_kwargs):
-    _test_model_backward(sample_satellite_batch, ResConv3DNet, encoder_model_kwargs)
+def test_resconv3dnet_backward(satellite_batch_component, encoder_model_kwargs):
+    _test_model_backward(satellite_batch_component, ResConv3DNet, encoder_model_kwargs)
