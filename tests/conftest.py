@@ -89,7 +89,7 @@ def ukv_zarr_path(session_tmp_path) -> str:
     variables = ["si10", "dswrf", "t", "prate"]
     steps = pd.timedelta_range("0h", "24h", freq="1h")
     x = np.linspace(-239_000, 857_000, 200)
-    y = np.linspace(-183_000, 1225_000, 200)
+    y = np.linspace(-183_000, 1425_000, 200)
     
     coords = (
         ("init_time", init_times),
