@@ -302,6 +302,7 @@ def sample_site_datamodule() -> SitePresavedDataModule:
 def sample_batch(sample_train_val_datamodule) -> TensorBatch:
     return next(iter(sample_train_val_datamodule.train_dataloader()))
 
+
 @pytest.fixture()
 def sample_satellite_batch(sample_batch) -> torch.Tensor:
     return torch.swapaxes(sample_batch["satellite_actual"], 1, 2)
