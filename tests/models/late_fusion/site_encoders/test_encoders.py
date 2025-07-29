@@ -1,7 +1,4 @@
-from pvnet.models.late_fusion.site_encoders.encoders import (
-    SimpleLearnedAggregator,
-    SingleAttentionNetwork,
-)
+from pvnet.models.late_fusion.site_encoders.encoders import SingleAttentionNetwork
 
 
 def _test_model_forward(batch, model_class, kwargs, batch_size):
@@ -27,6 +24,4 @@ def test_singleattentionnetwork_forward(sample_site_batch, site_encoder_model_kw
 
 
 def test_singleattentionnetwork_backward(sample_site_batch, site_encoder_model_kwargs):
-    _test_model_backward(
-        sample_site_batch, SingleAttentionNetwork, site_encoder_model_kwargs
-    )
+    _test_model_backward(sample_site_batch, SingleAttentionNetwork, site_encoder_model_kwargs)
