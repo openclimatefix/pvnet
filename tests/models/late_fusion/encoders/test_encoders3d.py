@@ -1,7 +1,4 @@
-from pvnet.models.late_fusion.encoders.encoders3d import (
-    DefaultPVNet,
-    ResConv3DNet,
-)
+from pvnet.models.late_fusion.encoders.encoders3d import DefaultPVNet, ResConv3DNet
 
 
 def _test_model_forward(batch, model_class, model_kwargs):

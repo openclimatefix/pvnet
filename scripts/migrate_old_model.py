@@ -2,7 +2,7 @@
 import datetime
 import os
 
-import pkg_resources
+from importlib.metadata import version
 import torch
 import yaml
 from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi
@@ -86,7 +86,7 @@ os.remove(f"{local_dir}/pytorch_model.bin")
 # Add a note to the model card to say the model has been migrated
 with open(f"{local_dir}/{MODEL_CARD_NAME}", "a") as f:
     current_date = datetime.date.today().strftime("%Y-%m-%d")
-    pvnet_version = pkg_resources.get_distribution("pvnet").version
+    pvnet_version = version("pvnet")
     f.write(
         f"\n\n---\n**Migration Note**: This model was migrated on {current_date} "
         f"to pvnet version {pvnet_version}\n"

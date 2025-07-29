@@ -26,8 +26,7 @@ def fc_batch_batch():
 
 @pytest.fixture()
 def linear_network_kwargs():
-    kwargs = dict(in_features=100, out_features=10)
-    return kwargs
+    return dict(in_features=100, out_features=10)
 
 
 def _test_model_forward(batches, model_class, model_kwargs):

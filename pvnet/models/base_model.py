@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 import hydra
-import pkg_resources
+from importlib.metadata import version
 import torch
 import yaml
 from huggingface_hub import ModelCard, ModelCardData, snapshot_download
@@ -370,14 +370,12 @@ class HuggingfaceMixin:
 
         # Find package versions for OCF packages
         packages_to_display = ["pvnet", "ocf-data-sampler"]
-        packages_and_versions = {
-            package_name: pkg_resources.get_distribution(package_name).version
-            for package_name in packages_to_display
-        }
+        packages_and_versions = {package: version(package) for package in packages_to_display}
+
 
         package_versions_markdown = ""
-        for package, version in packages_and_versions.items():
-            package_versions_markdown += f" - {package}=={version}\n"
+        for package, v in packages_and_versions.items():
+            package_versions_markdown += f" - {package}=={v}\n"
 
         return ModelCard.from_template(
             card_data,

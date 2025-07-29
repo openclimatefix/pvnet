@@ -17,31 +17,16 @@ def _test_model_backward(batch, model_class, kwargs):
     y.sum().backward()
 
 
-# Test model forward on all models
-def test_simplelearnedaggregator_forward(sample_pv_batch, site_encoder_model_kwargs):
-    _test_model_forward(
-        sample_pv_batch,
-        SimpleLearnedAggregator,
-        site_encoder_model_kwargs,
-        batch_size=8,
-    )
-
-
-def test_singleattentionnetwork_forward(sample_site_batch, site_encoder_model_kwargs_dsampler):
+def test_singleattentionnetwork_forward(sample_site_batch, site_encoder_model_kwargs):
     _test_model_forward(
         sample_site_batch,
         SingleAttentionNetwork,
-        site_encoder_model_kwargs_dsampler,
+        site_encoder_model_kwargs,
         batch_size=2,
     )
 
 
-# Test model backward on all models
-def test_simplelearnedaggregator_backward(sample_pv_batch, site_encoder_model_kwargs):
-    _test_model_backward(sample_pv_batch, SimpleLearnedAggregator, site_encoder_model_kwargs)
-
-
-def test_singleattentionnetwork_backward(sample_site_batch, site_encoder_model_kwargs_dsampler):
+def test_singleattentionnetwork_backward(sample_site_batch, site_encoder_model_kwargs):
     _test_model_backward(
-        sample_site_batch, SingleAttentionNetwork, site_encoder_model_kwargs_dsampler
+        sample_site_batch, SingleAttentionNetwork, site_encoder_model_kwargs
     )

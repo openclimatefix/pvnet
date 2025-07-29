@@ -1,6 +1,5 @@
 import os
 import tempfile
-from datetime import timedelta
 
 import pytest
 import pandas as pd
@@ -11,28 +10,27 @@ import hydra
 
 from pvnet.data import SitePresavedDataModule, UKRegionalPresavedDataModule
 from pvnet.models import LateFusionModel
+from ocf_data_sampler.numpy_sample.common_types import NumpySample, TensorBatch
 
 
-xr.set_options(keep_attrs=True)
 
-
-def time_before_present(dt: timedelta):
+def time_before_present(dt: pd.Timedelta) -> pd.Timestamp:
     return pd.Timestamp.now(tz=None) - dt
 
 
 @pytest.fixture
-def nwp_data():
+def nwp_data() -> xr.DataArray:
     # Load dataset which only contains coordinates, but no data
     ds = xr.open_zarr(
         f"{os.path.dirname(os.path.abspath(__file__))}/test_data/sample_data/nwp_shell.zarr"
     )
 
     # Last init time was at least 2 hours ago and hour to 3-hour interval
-    t0_datetime_utc = time_before_present(timedelta(hours=2)).floor(timedelta(hours=3))
+    t0_datetime_utc = time_before_present(pd.Timedelta("2H")).floor("3H")
     ds.init_time.values[:] = pd.date_range(
-        t0_datetime_utc - timedelta(hours=3 * (len(ds.init_time) - 1)),
+        t0_datetime_utc - pd.Timedelta(hours=3 * (len(ds.init_time) - 1)),
         t0_datetime_utc,
-        freq=timedelta(hours=3),
+        freq=pd.Timedelta("3H"),
     )
 
     # This is important to avoid saving errors
@@ -58,19 +56,19 @@ def nwp_data():
 
 
 @pytest.fixture()
-def sat_data():
+def sat_data() -> xr.DataArray:
     # Load dataset which only contains coordinates, but no data
     ds = xr.open_zarr(
         f"{os.path.dirname(os.path.abspath(__file__))}/test_data/sample_data/non_hrv_shell.zarr"
     )
 
     # Change times so they lead up to present. Delayed by at most 1 hour
-    t0_datetime_utc = time_before_present(timedelta(minutes=0)).floor(timedelta(minutes=30))
-    t0_datetime_utc = t0_datetime_utc - timedelta(minutes=30)
+    t0_datetime_utc = time_before_present(pd.Timedelta(0)).floor("30min")
+    t0_datetime_utc = t0_datetime_utc - pd.Timedelta("30min")
     ds.time.values[:] = pd.date_range(
-        t0_datetime_utc - timedelta(minutes=5 * (len(ds.time) - 1)),
+        t0_datetime_utc - pd.Timedelta(minutes=5 * (len(ds.time) - 1)),
         t0_datetime_utc,
-        freq=timedelta(minutes=5),
+        freq=pd.Timedelta("5min"),
     )
 
     # Add data to dataset
@@ -86,9 +84,8 @@ def sat_data():
     return ds
 
 
-def generate_synthetic_sample():
-    """
-    Generate synthetic sample for testing
+def generate_synthetic_sample() -> NumpySample:
+    """Generate synthetic sample for testing
     """
     now = pd.Timestamp.now(tz=None)
     sample = {}
@@ -156,9 +153,12 @@ def generate_synthetic_sample():
     return sample
 
 
-def generate_synthetic_site_sample(site_id=1, variation_index=0, add_noise=True):
-    """
-    Generate synthetic site sample that matches site sample structure
+def generate_synthetic_site_sample(
+    site_id: int, 
+    variation_index: int, 
+    add_noise: bool,
+) -> xr.Dataset:
+    """Generate synthetic site sample that matches site sample structure
 
     Args:
         site_id: ID for the site
@@ -168,15 +168,15 @@ def generate_synthetic_site_sample(site_id=1, variation_index=0, add_noise=True)
     now = pd.Timestamp.now(tz=None)
 
     # Create time and space coordinates
-    site_time_coords = pd.date_range(start=now - pd.Timedelta(hours=48), periods=197, freq="15min")
+    site_time_coords = pd.date_range(start=now - pd.Timedelta("48H"), periods=197, freq="15min")
     nwp_time_coords = pd.date_range(start=now, periods=50, freq="1h")
     nwp_lat = np.linspace(50.0, 60.0, 24)
     nwp_lon = np.linspace(-10.0, 2.0, 24)
     nwp_channels = np.array(['t2m', 'ssrd', 'ssr', 'sp', 'r', 'tcc', 'u10', 'v10'], dtype='<U5')
 
     # Generate NWP data
-    nwp_init_time = pd.date_range(start=now - pd.Timedelta(hours=12), periods=1, freq="12h").repeat(50)
-    nwp_steps = pd.timedelta_range(start=pd.Timedelta(hours=0), periods=50, freq="1h")
+    nwp_init_time = pd.date_range(start=now - pd.Timedelta("12H"), periods=1, freq="12h").repeat(50)
+    nwp_steps = pd.timedelta_range(start=pd.Timedelta(0), periods=50, freq="1h")
     nwp_data = np.random.randn(50, 8, 24, 24).astype(np.float32)
 
     # Generate site data and solar position
@@ -227,15 +227,6 @@ def generate_synthetic_site_sample(site_id=1, variation_index=0, add_noise=True)
         }
     )
 
-    # Add NWP attributes
-    site_data_ds["nwp-ecmwf"].attrs = {
-        "Conventions": "CF-1.7",
-        "GRIB_centre": "ecmf",
-        "GRIB_centreDescription": "European Centre for Medium-Range Weather Forecasts",
-        "GRIB_subCentre": "0",
-        "institution": "European Centre for Medium-Range Weather Forecasts"
-    }
-
     # Add random noise to data variables if stated
     if add_noise:
         for var in ["site", "nwp-ecmwf"]:
@@ -246,22 +237,9 @@ def generate_synthetic_site_sample(site_id=1, variation_index=0, add_noise=True)
     return site_data_ds
 
 
-def generate_synthetic_pv_batch():
-    """
-    Generate a synthetic PV batch for SimpleLearnedAggregator tests
-    """
-    # 3D tensor of shape [batch_size, sequence_length, num_sites]
-    batch_size = 8
-    sequence_length = 180 // 5 + 1
-    num_sites = 349
-
-    return torch.rand(batch_size, sequence_length, num_sites)
-
-
 @pytest.fixture()
-def sample_train_val_datamodule():
-    """
-    Create a DataModule with synthetic data files for training and validation
+def sample_train_val_datamodule() -> UKRegionalPresavedDataModule:
+    """Create a DataModule with synthetic data files for training and validation
     """
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Create train and val directories
@@ -286,12 +264,7 @@ def sample_train_val_datamodule():
 
 
 @pytest.fixture()
-def sample_datamodule(sample_train_val_datamodule):
-    yield sample_train_val_datamodule
-
-
-@pytest.fixture()
-def sample_site_datamodule():
+def sample_site_datamodule() -> SitePresavedDataModule:
     """
     Create a SiteDataModule with synthetic site data in netCDF format
     that matches the structure of the actual site samples
@@ -326,73 +299,40 @@ def sample_site_datamodule():
 
 
 @pytest.fixture()
-def sample_batch(sample_datamodule):
-    return next(iter(sample_datamodule.train_dataloader()))
-
+def sample_batch(sample_train_val_datamodule) -> TensorBatch:
+    return next(iter(sample_train_val_datamodule.train_dataloader()))
 
 @pytest.fixture()
-def sample_satellite_batch(sample_batch):
+def sample_satellite_batch(sample_batch) -> torch.Tensor:
     return torch.swapaxes(sample_batch["satellite_actual"], 1, 2)
 
 
 @pytest.fixture()
-def sample_pv_batch():
-    """
-    Create a batch of PV site data for testing site encoder models
-    """
-    pv_tensor = generate_synthetic_pv_batch()
-
-    # Get params from the tensor
-    batch_size = pv_tensor.shape[0]
-    gsp_ids = torch.randint(low=0, high=10, size=(batch_size,))
-
-    # Create batch dictionary - appropriate keys
-    batch = {
-        "pv": pv_tensor,
-        "gsp_id": gsp_ids,
-    }
-
-    return batch
-
-
-@pytest.fixture()
-def sample_site_batch(sample_site_datamodule):
+def sample_site_batch(sample_site_datamodule) -> TensorBatch:
     return next(iter(sample_site_datamodule.train_dataloader()))
 
 
 @pytest.fixture()
-def model_minutes_kwargs():
-    kwargs = dict(
+def model_minutes_kwargs() -> dict:
+    return dict(
         forecast_minutes=480,
         history_minutes=120,
     )
-    return kwargs
 
 
 @pytest.fixture()
-def encoder_model_kwargs():
+def encoder_model_kwargs() -> dict:
     # Used to test encoder model on satellite data
-    kwargs = dict(
+    return dict(
         sequence_length=7,  # 30 minutes of 5 minutely satellite data = 7 time steps
         image_size_pixels=24,
         in_channels=11,
         out_features=128,
     )
-    return kwargs
 
 
 @pytest.fixture()
-def site_encoder_model_kwargs():
-    """Used to test site encoder model on PV data"""
-    return dict(
-        sequence_length=180 // 5 + 1,
-        num_sites=349,
-        out_features=128,
-    )
-
-
-@pytest.fixture()
-def site_encoder_model_kwargs_dsampler():
+def site_encoder_model_kwargs() -> dict:
     """Used to test site encoder model on PV data with data sampler"""
     return dict(
         sequence_length=60 // 15 + 1,
@@ -403,8 +343,8 @@ def site_encoder_model_kwargs_dsampler():
 
 
 @pytest.fixture()
-def raw_late_fusion_model_kwargs(model_minutes_kwargs):
-    kwargs = dict(
+def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
+    return dict(
         sat_encoder=dict(
             _target_="pvnet.models.late_fusion.encoders.encoders3d.DefaultPVNet",
             _partial_=True,
@@ -444,25 +384,23 @@ def raw_late_fusion_model_kwargs(model_minutes_kwargs):
         nwp_history_minutes={"ukv": 120},
         nwp_forecast_minutes={"ukv": 480},
         min_sat_delay_minutes=0,
+        **model_minutes_kwargs,
     )
-
-    kwargs.update(model_minutes_kwargs)
-
-    return kwargs
 
 
 @pytest.fixture()
-def late_fusion_model_kwargs(raw_late_fusion_model_kwargs):
+def late_fusion_model_kwargs(raw_late_fusion_model_kwargs) -> dict:
     return hydra.utils.instantiate(raw_late_fusion_model_kwargs)
 
 
 @pytest.fixture()
-def late_fusion_model(late_fusion_model_kwargs):
+def late_fusion_model(late_fusion_model_kwargs) -> LateFusionModel:
     return LateFusionModel(**late_fusion_model_kwargs)
 
+
 @pytest.fixture()
-def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs):
-    kwargs = dict(
+def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs) -> dict:
+    return dict(
         # setting inputs to None/False apart from site history
         sat_encoder=None,
         nwp_encoders_dict=None,
@@ -480,24 +418,21 @@ def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs):
         embedding_dim=None,
         include_sun=False,
         include_gsp_yield_history=False,
-        include_site_yield_history=True
+        include_site_yield_history=True,
+        **model_minutes_kwargs
     )
-
-    kwargs.update(model_minutes_kwargs)
-
-    return kwargs
 
 
 @pytest.fixture()
-def late_fusion_model_kwargs_site_history(raw_late_fusion_model_kwargs_site_history):
+def late_fusion_model_kwargs_site_history(raw_late_fusion_model_kwargs_site_history) -> dict:
     return hydra.utils.instantiate(raw_late_fusion_model_kwargs_site_history)
 
 
 @pytest.fixture()
-def late_fusion_model_site_history(late_fusion_model_kwargs_site_history):
+def late_fusion_model_site_history(late_fusion_model_kwargs_site_history) -> LateFusionModel:
     return LateFusionModel(**late_fusion_model_kwargs_site_history)
 
 
 @pytest.fixture()
-def late_fusion_quantile_model(late_fusion_model_kwargs):
+def late_fusion_quantile_model(late_fusion_model_kwargs) -> LateFusionModel:
     return LateFusionModel(output_quantiles=[0.1, 0.5, 0.9], **late_fusion_model_kwargs)

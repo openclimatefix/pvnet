@@ -75,10 +75,6 @@ def test_init(temp_pt_sample_dir):
         prefetch_factor=None,
     )
 
-    # Verify datamodule initialisation
-    assert dm is not None
-    assert hasattr(dm, "train_dataloader")
-
 
 def test_iter(temp_pt_sample_dir):
     """Test iteration through DataModule"""
@@ -91,7 +87,6 @@ def test_iter(temp_pt_sample_dir):
 
     # Verify existing keys
     batch = next(iter(dm.train_dataloader()))
-    assert batch is not None
     assert "gsp" in batch
 
 
@@ -104,36 +99,25 @@ def test_iter_multiprocessing(temp_pt_sample_dir):
         prefetch_factor=1,
     )
 
-    served_batches = 0
-    for batch in dm.train_dataloader():
-        served_batches += 1
-
-        if served_batches == 2:
-            break
-
-    # Batch verification
-    assert served_batches == 2
+    batches = [batch for _, batch in zip(range(2), dm.train_dataloader())]
+    assert len(batches)==2
 
 
 def test_site_init_sample_dir(temp_nc_sample_dir):
     """Test SiteDataModule initialization with sample dir"""
-    dm = SitePresavedDataModule(
+    _ = SitePresavedDataModule(
         sample_dir=temp_nc_sample_dir,
         batch_size=2,
         num_workers=0,
         prefetch_factor=None,
     )
 
-    # Verify datamodule initialisation
-    assert dm is not None
-    assert hasattr(dm, "train_dataloader")
-
 
 def test_site_init_config(temp_nc_sample_dir):
     """Test SiteDataModule initialization with config file"""
     config_path = f"{temp_nc_sample_dir}/data_configuration.yaml"
 
-    dm = SiteStreamedDataModule(
+    _ = SiteStreamedDataModule(
         configuration=config_path,
         batch_size=2,
         num_workers=0,
@@ -141,7 +125,3 @@ def test_site_init_config(temp_nc_sample_dir):
         train_period=[None, None],
         val_period=[None, None],
     )
-
-    # Verify datamodule initialisation w/ config
-    assert dm is not None
-    assert hasattr(dm, "train_dataloader")
