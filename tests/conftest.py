@@ -315,7 +315,7 @@ def site_encoder_model_kwargs() -> dict:
 
 @pytest.fixture()
 def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
-    kwargs = dict(
+    return dict(
         sat_encoder=dict(
             _target_="pvnet.models.late_fusion.encoders.encoders3d.DefaultPVNet",
             _partial_=True,
@@ -365,7 +365,6 @@ def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
         min_sat_delay_minutes=0,
         **model_minutes_kwargs,
     )
-    return kwargs
 
 
 @pytest.fixture()
