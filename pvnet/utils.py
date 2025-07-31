@@ -300,10 +300,12 @@ def validate_batch_against_config(
     dim_names = ["batch", "time", "channels", "height", "width", "sites"]
 
     if "nwp" in batch and "nwp_encoders_dict" in model_config:
-        for source, nwp_tensor in batch["nwp"].items():
+        for source, nwp_data_dict in batch["nwp"].items():
             if source not in model_config.nwp_encoders_dict:
                 continue
 
+            nwp_tensor = nwp_data_dict["nwp"]
+            
             cfg = model_config.nwp_encoders_dict[source]
             hist_mins = model_config.nwp_history_minutes[source]
             fcst_mins = model_config.nwp_forecast_minutes[source]
@@ -313,9 +315,9 @@ def validate_batch_against_config(
             expected_shape = (
                 nwp_tensor.shape[0],
                 exp_time,
-                cfg.in_channels,
-                cfg.image_size_pixels,
-                cfg.image_size_pixels,
+                cfg.keywords['in_channels'],
+                cfg.keywords['image_size_pixels'],
+                cfg.keywords['image_size_pixels'],
             )
             _check_shape_and_raise(f"NWP.{source}",
             nwp_tensor,
@@ -329,16 +331,20 @@ def validate_batch_against_config(
         expected_shape = (
             sat_tensor.shape[0],
             exp_time,
-            cfg.in_channels,
-            cfg.image_size_pixels,
-            cfg.image_size_pixels,
+            cfg.keywords['in_channels'],
+            cfg.keywords['image_size_pixels'],
+            cfg.keywords['image_size_pixels'],
         )
         _check_shape_and_raise("Satellite", sat_tensor, expected_shape, dim_names)
 
     if "gsp" in batch:
         gsp_tensor = batch["gsp"]
-        exp_forecast_steps = model_config.forecast_minutes // gsp_interval_minutes
-        expected_shape = (gsp_tensor.shape[0], exp_forecast_steps)
+        
+        history_len = model_config.history_minutes // gsp_interval_minutes
+        forecast_len = model_config.forecast_minutes // gsp_interval_minutes
+        expected_total_len = history_len + forecast_len + 1
+        
+        expected_shape = (gsp_tensor.shape[0], expected_total_len)
         _check_shape_and_raise("GSP Target", gsp_tensor, expected_shape, dim_names)
 
     log.info("Batch shape validation success.")
