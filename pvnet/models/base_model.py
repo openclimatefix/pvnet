@@ -30,6 +30,7 @@ from pvnet.utils import (
     MODEL_CONFIG_NAME,
     PYTORCH_WEIGHTS_NAME,
     plot_batch_forecasts,
+    validate_batch_against_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -511,6 +512,7 @@ class BaseModel(pl.LightningModule, PVNetModelHubMixin):
         # save all validation results to array, so we can save these to weights n biases
         self.validation_epoch_results = []
         self.save_validation_results_csv = save_validation_results_csv
+        self._has_validated_batch = False
 
     def _adapt_batch(self, batch):
         """Slice batches into appropriate shapes for model.
@@ -957,3 +959,9 @@ class BaseModel(pl.LightningModule, PVNetModelHubMixin):
             # Use learning rate found by learning rate finder callback
             self._optimizer.lr = self.lr
         return self._optimizer(self)
+
+    def on_train_batch_start(self, batch, batch_idx):
+        """Hook to run before training step for a single batch."""
+        if not self._has_validated_batch:
+            validate_batch_against_config(batch, self.hparams)
+            self._has_validated_batch = True
