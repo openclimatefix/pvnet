@@ -1,9 +1,9 @@
 """Utils"""
 import logging
 
-import torch
 import rich.syntax
 import rich.tree
+import torch
 from lightning.pytorch.utilities import rank_zero_only
 from omegaconf import DictConfig, OmegaConf
 
@@ -95,11 +95,13 @@ def _check_shape_and_raise(
 ) -> None:
     """
     Checks if actual shape matches expected shape - raises a detailed error on mismatch.
+
     Args:
         data_key: A string identifying the data being checked (e.g., "NWP.ukv").
         tensor: The tensor object whose shape is to be validated.
         expected_shape: The expected shape of the tensor.
         dim_names: A list of names for each dimension for more descriptive errors.
+
     Raises:
         ValueError: If the shapes do not match.
     """
@@ -132,18 +134,20 @@ def validate_batch_against_config(
 ) -> None:
     """
     Validates the shapes of tensors in a batch against the model's configuration.
+
     Context-aware error messages when a batch's tensor shape does not match the 
     shape expected by the model configuration.
+
     Args:
         batch: A dictionary of tensors from the dataloader.
         model_config: The model's configuration object (e.g., config.model).
         sat_interval_minutes: The time resolution of the satellite data in minutes.
         gsp_interval_minutes: The time resolution of the GSP data in minutes.
+
     Raises:
         ValueError: If a tensor shape mismatches the expected shape derived from the config.
     """
-    log = get_logger(__name__)
-    log.info("Performing batch shape validation against model config.")
+    logger.info("Performing batch shape validation against model config.")
     dim_names = ["batch", "time", "channels", "height", "width", "sites"]
 
     if "nwp" in batch and "nwp_encoders_dict" in model_config:
@@ -194,4 +198,4 @@ def validate_batch_against_config(
         expected_shape = (gsp_tensor.shape[0], expected_total_len)
         _check_shape_and_raise("GSP Target", gsp_tensor, expected_shape, dim_names)
 
-    log.info("Batch shape validation success.")
+    logger.info("Batch shape validation successful.")
