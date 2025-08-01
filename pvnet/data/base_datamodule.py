@@ -45,6 +45,7 @@ class BasePresavedDataModule(LightningDataModule):
         batch_size: int = 16,
         num_workers: int = 0,
         prefetch_factor: int | None = None,
+        persistent_workers: bool = False,
     ):
         """Base Datamodule for loading pre-saved samples
 
@@ -53,8 +54,9 @@ class BasePresavedDataModule(LightningDataModule):
             batch_size: Batch size.
             num_workers: Number of workers to use in multiprocess batch loading.
             prefetch_factor: Number of data will be prefetched at the end of each worker process.
-            train_period: Date range filter for train dataloader.
-            val_period: Date range filter for val dataloader.
+            persistent_workers: If True, the data loader will not shut down the worker processes 
+                after a dataset has been consumed once. This allows to maintain the workers Dataset 
+                instances alive.
         """
         super().__init__()
 
@@ -71,7 +73,7 @@ class BasePresavedDataModule(LightningDataModule):
             timeout=0,
             worker_init_fn=None,
             prefetch_factor=prefetch_factor,
-            persistent_workers=False,
+            persistent_workers=persistent_workers,
         )
 
     def _get_premade_samples_dataset(self, subdir: str) -> Dataset:
@@ -97,8 +99,10 @@ class BaseStreamedDataModule(LightningDataModule):
         batch_size: int = 16,
         num_workers: int = 0,
         prefetch_factor: int | None = None,
+        persistent_workers: bool = False,
         train_period: list[str | None] = [None, None],
         val_period: list[str | None] = [None, None],
+
     ):
         """Base Datamodule for streaming samples.
 
@@ -107,6 +111,9 @@ class BaseStreamedDataModule(LightningDataModule):
             batch_size: Batch size.
             num_workers: Number of workers to use in multiprocess batch loading.
             prefetch_factor: Number of data will be prefetched at the end of each worker process.
+            persistent_workers: If True, the data loader will not shut down the worker processes 
+                after a dataset has been consumed once. This allows to maintain the workers Dataset 
+                instances alive.
             train_period: Date range filter for train dataloader.
             val_period: Date range filter for val dataloader.
         """
@@ -126,7 +133,7 @@ class BaseStreamedDataModule(LightningDataModule):
             timeout=0,
             worker_init_fn=None,
             prefetch_factor=prefetch_factor,
-            persistent_workers=False,
+            persistent_workers=persistent_workers,
         )
 
     def setup(self, stage: str | None = None):
