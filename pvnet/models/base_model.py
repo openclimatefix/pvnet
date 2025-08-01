@@ -516,5 +516,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
     def on_train_batch_start(self, batch, batch_idx):
         """Hook to run before training step for a single batch."""
         if not self._has_validated_batch:
-            validate_batch_against_config(batch, self.hparams)
+            # Validation occurs on first batch only
+            validate_batch_against_config(batch=batch, model_config=self)
             self._has_validated_batch = True

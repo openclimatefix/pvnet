@@ -148,7 +148,7 @@ def validate_batch_against_config(
         ValueError: If a tensor shape mismatches the expected shape derived from the config.
     """
     logger.info("Performing batch shape validation against model config.")
-    dim_names = ["batch", "time", "channels", "height", "width", "sites"]
+    dim_names = ["batch", "time", "channels", "height", "width"]
 
     if "nwp" in batch and "nwp_encoders_dict" in model_config:
         for source, nwp_data_dict in batch["nwp"].items():
