@@ -6,4 +6,5 @@ _target_: pvnet.data.UKRegionalPresavedDataModule
 sample_dir: "PLACEHOLDER"
 num_workers: 10
 prefetch_factor: 2
+persistent_workers: false
 batch_size: 8

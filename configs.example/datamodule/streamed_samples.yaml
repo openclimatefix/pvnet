@@ -5,6 +5,7 @@ _target_: pvnet.data.UKRegionalStreamedDataModule
 configuration: "PLACEHOLDER.yaml"
 num_workers: 20
 prefetch_factor: 2
+persistent_workers: false
 batch_size: 8
 
 train_period:
