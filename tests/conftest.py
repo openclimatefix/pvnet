@@ -1,24 +1,20 @@
 import os
 
 import dask.array
-import pytest
-import pandas as pd
-import numpy as np
-import xarray as xr
-import torch
 import hydra
-
-from ocf_data_sampler.torch_datasets.sample.site import SiteSample
-from ocf_data_sampler.torch_datasets.datasets import SitesDataset
-from ocf_data_sampler.numpy_sample.common_types import TensorBatch
+import numpy as np
+import pandas as pd
+import pytest
+import torch
+import xarray as xr
 from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configuration
+from ocf_data_sampler.numpy_sample.common_types import TensorBatch
+from ocf_data_sampler.torch_datasets.datasets import SitesDataset
+from ocf_data_sampler.torch_datasets.sample.site import SiteSample
 
+from pvnet.data import SiteStreamedDataModule, UKRegionalStreamedDataModule
 from pvnet.data.base_datamodule import collate_fn
-from pvnet.data import  UKRegionalStreamedDataModule, SiteStreamedDataModule
 from pvnet.models import LateFusionModel
-
-
-
 
 _top_test_directory = os.path.dirname(os.path.realpath(__file__))
 
@@ -195,8 +191,8 @@ def site_data_paths(session_tmp_path) -> tuple[str, str]:
         }
     )
 
-    generation_data_path = session_tmp_path / f"sites_data.netcdf"
-    metadata_path = session_tmp_path / f"sites_metadata.csv"
+    generation_data_path = session_tmp_path / "sites_data.netcdf"
+    metadata_path = session_tmp_path / "sites_metadata.csv"
     ds_gen.to_netcdf(generation_data_path)
     df_meta.to_csv(metadata_path, index=False)
 
@@ -362,6 +358,7 @@ def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
         sat_history_minutes=30,
         nwp_history_minutes={"ukv": 120, "ecmwf": 120},
         nwp_forecast_minutes={"ukv": 480, "ecmwf": 480},
+        nwp_interval_minutes={"ukv": 60, "ecmwf": 60},
         min_sat_delay_minutes=0,
         **model_minutes_kwargs,
     )
