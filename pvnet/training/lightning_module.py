@@ -11,11 +11,13 @@ import xarray as xr
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from ocf_data_sampler.torch_datasets.sample.base import copy_batch_to_device
 from omegaconf import DictConfig
+
 from pvnet.data.base_datamodule import collate_fn
 from pvnet.models.base_model import BaseModel
 from pvnet.optimizers import AbstractOptimizer
 from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot
 from pvnet.utils import validate_batch_against_config
+
 
 class PVNetLightningModule(pl.LightningModule):
     """Lightning module for training PVNet models"""
@@ -32,6 +34,7 @@ class PVNetLightningModule(pl.LightningModule):
         Args:
             model: The PVNet model
             optimizer: Optimizer
+            model_config: Config object passed
             save_all_validation_results: Whether to save all the validation predictions to wandb
         """
         super().__init__()

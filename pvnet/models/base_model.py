@@ -23,7 +23,6 @@ from pvnet.utils import (
     MODEL_CARD_NAME,
     MODEL_CONFIG_NAME,
     PYTORCH_WEIGHTS_NAME,
-    validate_batch_against_config,
 )
 
 
