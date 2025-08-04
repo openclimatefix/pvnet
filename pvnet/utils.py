@@ -151,6 +151,10 @@ def validate_batch_against_config(
     dim_names = ["batch", "time", "channels", "height", "width"]
 
     if "nwp" in batch and "nwp_encoders_dict" in model_config:
+        if "nwp" not in batch:
+            raise ValueError(
+                "Model configured with 'nwp_encoders_dict' - 'nwp' data missing from batch."
+            )
         for source, nwp_data_dict in batch["nwp"].items():
             if source not in model_config.nwp_encoders_dict:
                 continue
@@ -176,6 +180,10 @@ def validate_batch_against_config(
             dim_names)
 
     if "sat" in batch and "sat_encoder" in model_config:
+        if "sat" not in batch:
+            raise ValueError(
+                "Model configured with 'sat_encoder' - 'sat' data missing from batch."
+            )
         sat_tensor = batch["sat"]
         cfg = model_config.sat_encoder
         exp_time = model_config.sat_history_minutes // sat_interval_minutes + 1

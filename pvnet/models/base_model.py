@@ -429,8 +429,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         else:
             self.num_output_features = self.forecast_len
 
-        self._has_validated_batch = False
-
     def _adapt_batch(self, batch: TensorBatch) -> TensorBatch:
         """Slice batches into appropriate shapes for model.
 
@@ -512,10 +510,3 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         # y_quantiles Shape: batch_size, seq_length, num_quantiles
         idx = self.output_quantiles.index(0.5)
         return y_quantiles[..., idx]
-
-    def on_train_batch_start(self, batch, batch_idx):
-        """Hook to run before training step for a single batch."""
-        if not self._has_validated_batch:
-            # Validation occurs on first batch only
-            validate_batch_against_config(batch=batch, model_config=self)
-            self._has_validated_batch = True

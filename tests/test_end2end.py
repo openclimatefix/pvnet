@@ -2,12 +2,17 @@ import lightning
 from pvnet.training.lightning_module import PVNetLightningModule
 from pvnet.optimizers import EmbAdamWReduceLROnPlateau
 
-def test_model_trainer_fit(late_fusion_model, uk_streamed_datamodule):
+def test_model_trainer_fit(
+    late_fusion_model, 
+    uk_streamed_datamodule,
+    late_fusion_model_kwargs,
+):
     """Test end-to-end training."""
 
     ligtning_model = PVNetLightningModule(
         model=late_fusion_model,
         optimizer=EmbAdamWReduceLROnPlateau(),
+        model_config=late_fusion_model_kwargs,
     )
 
     # Get a sample batch for testing

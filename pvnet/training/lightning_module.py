@@ -10,12 +10,12 @@ import wandb
 import xarray as xr
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from ocf_data_sampler.torch_datasets.sample.base import copy_batch_to_device
-
+from omegaconf import DictConfig
 from pvnet.data.base_datamodule import collate_fn
 from pvnet.models.base_model import BaseModel
 from pvnet.optimizers import AbstractOptimizer
 from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot
-
+from pvnet.utils import validate_batch_against_config
 
 class PVNetLightningModule(pl.LightningModule):
     """Lightning module for training PVNet models"""
@@ -24,6 +24,7 @@ class PVNetLightningModule(pl.LightningModule):
         self,
         model: BaseModel,
         optimizer: AbstractOptimizer,
+        model_config: DictConfig,
         save_all_validation_results: bool = False,
     ):
         """Lightning module for training PVNet models
@@ -37,6 +38,7 @@ class PVNetLightningModule(pl.LightningModule):
 
         self.model = model
         self._optimizer = optimizer
+        self.model_config = model_config
 
         # Model must have lr to allow tuning
         # This setting is only used when lr is tuned with callback
@@ -44,6 +46,7 @@ class PVNetLightningModule(pl.LightningModule):
 
         # Set up store for all all validation results so we can log these
         self.save_all_validation_results = save_all_validation_results
+        self._has_validated_batch = False
 
     def transfer_batch_to_device(
         self, 
@@ -208,6 +211,11 @@ class PVNetLightningModule(pl.LightningModule):
 
             batch = collate_fn([val_dataset[i] for i in idxs])
             batch = self.transfer_batch_to_device(batch, self.device, dataloader_idx=0)
+            
+            if not self._has_validated_batch:
+                validate_batch_against_config(batch=batch, model_config=self.model_config)
+                self._has_validated_batch = True
+            
             with torch.no_grad():
                 y_hat = self.model(batch)
             
