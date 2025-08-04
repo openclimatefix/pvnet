@@ -26,7 +26,4 @@ work_dir: ${hydra:runtime.cwd}
 
 model_name: "default"
 
-# pretty print config at the start of the run using Rich library
-print_config: True
-
 seed: 2727831

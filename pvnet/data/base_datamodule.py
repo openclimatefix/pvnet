@@ -102,6 +102,7 @@ class BaseStreamedDataModule(LightningDataModule):
         persistent_workers: bool = False,
         train_period: list[str | None] = [None, None],
         val_period: list[str | None] = [None, None],
+        seed: int | None = None,
 
     ):
         """Base Datamodule for streaming samples.
@@ -116,12 +117,14 @@ class BaseStreamedDataModule(LightningDataModule):
                 instances alive.
             train_period: Date range filter for train dataloader.
             val_period: Date range filter for val dataloader.
+            seed: Random seed used in shuffling datasets.
         """
         super().__init__()
 
         self.configuration = configuration
         self.train_period = train_period
         self.val_period = val_period
+        self.seed = seed
 
         self._common_dataloader_kwargs = dict(
             batch_size=batch_size,
@@ -142,11 +145,16 @@ class BaseStreamedDataModule(LightningDataModule):
         # This logic runs only once at the start of training, therefore the val dataset is only
         # shuffled once
         if stage == "fit":
+
             # Prepare the train dataset
             self.train_dataset = self._get_streamed_samples_dataset(*self.train_period)
 
-            # Prepare and pre-shuffle the val dataset
+            # Prepare and pre-shuffle the val dataset and set seed for reproducibility
             val_dataset = self._get_streamed_samples_dataset(*self.val_period)
+
+            if self.seed is not None:
+                torch.manual_seed(self.seed)
+
             shuffled_indices = torch.randperm(len(val_dataset))
             self.val_dataset = Subset(val_dataset, shuffled_indices)
 
