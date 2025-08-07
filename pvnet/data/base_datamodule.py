@@ -46,6 +46,7 @@ class BasePresavedDataModule(LightningDataModule):
         num_workers: int = 0,
         prefetch_factor: int | None = None,
         persistent_workers: bool = False,
+        pin_memory: bool = False,
     ):
         """Base Datamodule for loading pre-saved samples
 
@@ -53,10 +54,12 @@ class BasePresavedDataModule(LightningDataModule):
             sample_dir: Path to the directory of pre-saved samples.
             batch_size: Batch size.
             num_workers: Number of workers to use in multiprocess batch loading.
-            prefetch_factor: Number of data will be prefetched at the end of each worker process.
+            prefetch_factor: Number of batches loaded in advance by each worker.
             persistent_workers: If True, the data loader will not shut down the worker processes 
                 after a dataset has been consumed once. This allows to maintain the workers Dataset 
                 instances alive.
+            pin_memory: If True, the data loader will copy Tensors into device/CUDA pinned memory 
+                before returning them.
         """
         super().__init__()
 
@@ -68,7 +71,7 @@ class BasePresavedDataModule(LightningDataModule):
             batch_sampler=None,
             num_workers=num_workers,
             collate_fn=collate_fn,
-            pin_memory=False,
+            pin_memory=pin_memory,
             drop_last=False,
             timeout=0,
             worker_init_fn=None,
@@ -100,6 +103,7 @@ class BaseStreamedDataModule(LightningDataModule):
         num_workers: int = 0,
         prefetch_factor: int | None = None,
         persistent_workers: bool = False,
+        pin_memory: bool = False,
         train_period: list[str | None] = [None, None],
         val_period: list[str | None] = [None, None],
         seed: int | None = None,
@@ -111,10 +115,12 @@ class BaseStreamedDataModule(LightningDataModule):
             configuration: Path to ocf-data-sampler configuration file.
             batch_size: Batch size.
             num_workers: Number of workers to use in multiprocess batch loading.
-            prefetch_factor: Number of data will be prefetched at the end of each worker process.
+            prefetch_factor: Number of batches loaded in advance by each worker.
             persistent_workers: If True, the data loader will not shut down the worker processes 
                 after a dataset has been consumed once. This allows to maintain the workers Dataset 
                 instances alive.
+            pin_memory: If True, the data loader will copy Tensors into device/CUDA pinned memory 
+                before returning them.
             train_period: Date range filter for train dataloader.
             val_period: Date range filter for val dataloader.
             seed: Random seed used in shuffling datasets.
@@ -131,7 +137,7 @@ class BaseStreamedDataModule(LightningDataModule):
             batch_sampler=None,
             num_workers=num_workers,
             collate_fn=collate_fn,
-            pin_memory=False,
+            pin_memory=pin_memory,
             drop_last=False,
             timeout=0,
             worker_init_fn=None,
