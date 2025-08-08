@@ -2,41 +2,51 @@
 import datetime
 import os
 from importlib.metadata import version
+import tempfile
+
 
 import torch
 import yaml
-from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi
+from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi, file_exists
 from safetensors.torch import save_file
 
 from pvnet.models.base_model import BaseModel
-from pvnet.utils import MODEL_CARD_NAME, MODEL_CONFIG_NAME, PYTORCH_WEIGHTS_NAME
+from pvnet.utils import MODEL_CARD_NAME, MODEL_CONFIG_NAME, PYTORCH_WEIGHTS_NAME, DATA_CONFIG_NAME
+
 
 # ------------------------------------------
 # USER SETTINGS
 
 # The huggingface commit of the model you want to update
-repo_id = "openclimatefix/pvnet_uk_region"
-revision = "6feaa986a6bed3cc6c7961c6bf9e92fb15acca6a"
+repo_id: str = "openclimatefix/pvnet_uk_region_day_ahead"
+revision: str = "e12f7d7c16a00c41b03aecb787a7e992fbd4235b"
 
 # The local directory which will be downloaded to
-local_dir = "/home/jamesfulton/tmp/model_migration"
+# If set to None a temporary directory will be used
+local_dir: str | None = None 
 
-# Whether to upload the migrated model back to the huggingface
-upload = False
+# Whether to upload the migrated model back to the huggingface - else just saved locally
+upload: bool = True
 
 # ------------------------------------------
 # SETUP
 
-os.makedirs(local_dir, exist_ok=False)
+if local_dir is None:
+    temp_dir = tempfile.TemporaryDirectory()
+    save_dir = temp_dir.name
+
+else:
+    os.makedirs(local_dir, exist_ok=False)
+    save_dir = local_dir
 
 # Set up huggingface API
 api = HfApi()
 
 # Download the model repo
-local_dir = api.snapshot_download(
+_ = api.snapshot_download(
     repo_id=repo_id,
     revision=revision,
-    local_dir=local_dir,
+    local_dir=save_dir,
     force_download=True,
 )
 
@@ -44,7 +54,7 @@ local_dir = api.snapshot_download(
 # MIGRATION STEPS
 
 # Modify the model config
-with open(f"{local_dir}/{MODEL_CONFIG_NAME}") as cfg:
+with open(f"{save_dir}/{MODEL_CONFIG_NAME}") as cfg:
     model_config = yaml.load(cfg, Loader=yaml.FullLoader)
 
 # Get rid of the optimiser - we don't store this anymore
@@ -75,16 +85,16 @@ for component in ["sat_encoder", "pv_encoder", "output_network"]:
                 .replace("ResFCNet2", "ResFCNet")
         )
     
-with open(f"{local_dir}/{MODEL_CONFIG_NAME}", "w") as f:
+with open(f"{save_dir}/{MODEL_CONFIG_NAME}", "w") as f:
     yaml.dump(model_config, f, sort_keys=False, default_flow_style=False)
 
 # Resave the model weights as safetensors
-state_dict = torch.load(f"{local_dir}/pytorch_model.bin", map_location="cpu", weights_only=True)
-save_file(state_dict, f"{local_dir}/{PYTORCH_WEIGHTS_NAME}")
-os.remove(f"{local_dir}/pytorch_model.bin")
+state_dict = torch.load(f"{save_dir}/pytorch_model.bin", map_location="cpu", weights_only=True)
+save_file(state_dict, f"{save_dir}/{PYTORCH_WEIGHTS_NAME}")
+os.remove(f"{save_dir}/pytorch_model.bin")
 
 # Add a note to the model card to say the model has been migrated
-with open(f"{local_dir}/{MODEL_CARD_NAME}", "a") as f:
+with open(f"{save_dir}/{MODEL_CARD_NAME}", "a") as f:
     current_date = datetime.date.today().strftime("%Y-%m-%d")
     pvnet_version = version("pvnet")
     f.write(
@@ -96,7 +106,7 @@ with open(f"{local_dir}/{MODEL_CARD_NAME}", "a") as f:
 # CHECKS
 
 # Check the model can be loaded
-model = BaseModel.from_pretrained(model_id=local_dir, revision=None)
+model = BaseModel.from_pretrained(model_id=save_dir, revision=None)
 
 print("Model checkpoint successfully migrated")
 
@@ -107,19 +117,20 @@ if upload:
     print("Uploading migrated model to huggingface")
 
     operations = []
-    for file in [MODEL_CARD_NAME, MODEL_CONFIG_NAME, PYTORCH_WEIGHTS_NAME]:
+    for file in [MODEL_CARD_NAME, MODEL_CONFIG_NAME, PYTORCH_WEIGHTS_NAME, DATA_CONFIG_NAME]:
         # Stage modified files for upload
         operations.append(
             CommitOperationAdd(
                 path_in_repo=file, # Name of the file in the repo
-                path_or_fileobj=f"{local_dir}/{file}", # Local path to the file
+                path_or_fileobj=f"{save_dir}/{file}", # Local path to the file
             ),
         )
 
-    operations.append(
-        # Remove old pytorch weights file
-        CommitOperationDelete(path_in_repo="pytorch_model.bin")
-    )
+    # Remove old pytorch weights file if it exists in the most recent commit
+    if file_exists(repo_id, "pytorch_model.bin"):
+        operations.append(
+            CommitOperationDelete(path_in_repo="pytorch_model.bin")
+        )
 
     commit_info = api.create_commit(
         repo_id=repo_id,
@@ -137,3 +148,6 @@ if upload:
         f"    by: {c.authors}\n"
         f"    title: {c.title}\n"
     )
+
+if local_dir is None:
+    temp_dir.cleanup()
