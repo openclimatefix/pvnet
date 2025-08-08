@@ -381,6 +381,7 @@ def late_fusion_model(late_fusion_model_kwargs) -> LateFusionModel:
 def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs) -> dict:
     return dict(
         # Set inputs to None/False apart from site history
+        target_key="pv",
         sat_encoder=None,
         nwp_encoders_dict=None,
         add_image_embedding_channel=False,
@@ -396,9 +397,12 @@ def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs) -> dict:
         location_id_mapping=None,
         embedding_dim=None,
         include_sun=False,
+        include_time=True,
         include_gsp_yield_history=False,
         include_site_yield_history=True,
-        **model_minutes_kwargs
+        forecast_minutes=480, 
+        history_minutes=60,
+        interval_minutes=15,
     )
 
 

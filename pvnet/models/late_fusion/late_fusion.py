@@ -343,17 +343,10 @@ class LateFusionModel(BaseModel):
             sun = torch.cat((x["solar_azimuth"], x["solar_elevation"]), dim=1).float()
             sun = self.sun_fc1(sun)
             modes["sun"] = sun
-
+        
         if self.include_time:
-            time = torch.cat(
-                (
-                    x[f"{self._target_key}_date_sin"],
-                    x[f"{self._target_key}_date_cos"],
-                    x[f"{self._target_key}_time_sin"],
-                    x[f"{self._target_key}_time_cos"],
-                ),
-                dim=1,
-            ).float()
+            time = [x[k] for k in ["date_sin", "date_cos", "time_sin", "time_cos"]]
+            time = torch.cat(time, dim=1).float()
             time = self.time_fc1(time)
             modes["time"] = time
 
