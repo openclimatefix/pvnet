@@ -1,9 +1,8 @@
 """Script to migrate old PVNet models (v4.1) which are hosted on huggingface to current version"""
 import datetime
 import os
-from importlib.metadata import version
 import tempfile
-
+from importlib.metadata import version
 
 import torch
 import yaml
@@ -11,8 +10,7 @@ from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi, fi
 from safetensors.torch import save_file
 
 from pvnet.models.base_model import BaseModel
-from pvnet.utils import MODEL_CARD_NAME, MODEL_CONFIG_NAME, PYTORCH_WEIGHTS_NAME, DATA_CONFIG_NAME
-
+from pvnet.utils import DATA_CONFIG_NAME, MODEL_CARD_NAME, MODEL_CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 
 # ------------------------------------------
 # USER SETTINGS
