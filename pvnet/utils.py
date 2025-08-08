@@ -180,10 +180,6 @@ def validate_batch_against_config(
             dim_names)
 
     if "sat" in batch and "sat_encoder" in model_config:
-        if "sat" not in batch:
-            raise ValueError(
-                "Model configured with 'sat_encoder' - 'sat' data missing from batch."
-            )
         sat_tensor = batch["sat"]
         cfg = model_config.sat_encoder
         exp_time = model_config.sat_history_minutes // sat_interval_minutes + 1
