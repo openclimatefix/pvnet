@@ -126,6 +126,18 @@ def _check_shape_and_raise(
             )
 
 
+def _get_cfg_param(cfg, key):
+    """
+    Gets a parameter from a config object.
+
+    Handles whether it's DictConfig or functools.partial object.
+    """
+    if hasattr(cfg, 'keywords'):
+        return cfg.keywords[key]
+    else:
+        return getattr(cfg, key)
+
+
 def validate_batch_against_config(
     batch: dict,
     model_config: DictConfig,
@@ -170,10 +182,11 @@ def validate_batch_against_config(
             expected_shape = (
                 nwp_tensor.shape[0],
                 exp_time,
-                cfg.keywords['in_channels'],
-                cfg.keywords['image_size_pixels'],
-                cfg.keywords['image_size_pixels'],
+                _get_cfg_param(cfg, 'in_channels'),
+                _get_cfg_param(cfg, 'image_size_pixels'),
+                _get_cfg_param(cfg, 'image_size_pixels'),
             )
+
             _check_shape_and_raise(f"NWP.{source}",
             nwp_tensor,
             expected_shape,
@@ -183,13 +196,15 @@ def validate_batch_against_config(
         sat_tensor = batch["sat"]
         cfg = model_config.sat_encoder
         exp_time = model_config.sat_history_minutes // sat_interval_minutes + 1
+
         expected_shape = (
             sat_tensor.shape[0],
             exp_time,
-            cfg.keywords['in_channels'],
-            cfg.keywords['image_size_pixels'],
-            cfg.keywords['image_size_pixels'],
+            _get_cfg_param(cfg, 'in_channels'),
+            _get_cfg_param(cfg, 'image_size_pixels'),
+            _get_cfg_param(cfg, 'image_size_pixels'),
         )
+
         _check_shape_and_raise("Satellite", sat_tensor, expected_shape, dim_names)
 
     if "gsp" in batch:

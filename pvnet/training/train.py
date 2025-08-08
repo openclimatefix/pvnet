@@ -21,11 +21,9 @@ from pvnet.utils import (
     DATAMODULE_CONFIG_NAME,
     FULL_CONFIG_NAME,
     MODEL_CONFIG_NAME,
-    validate_batch_against_config,
 )
 
 log = logging.getLogger(__name__)
-
 
 
 def resolve_monitor_loss(output_quantiles: list | None) -> str:
@@ -133,11 +131,6 @@ def train(config: DictConfig) -> None:
                 wandb_logger.experiment.save(f"{save_dir}/{FULL_CONFIG_NAME}", base_path=save_dir)
                 
                 break
-
-    datamodule.setup(stage="fit")
-    val_loader = datamodule.val_dataloader()
-    first_val_batch = next(iter(val_loader))
-    validate_batch_against_config(batch=first_val_batch, model_config=model.model_config)
 
     trainer: Trainer = hydra.utils.instantiate(
         config.trainer,
