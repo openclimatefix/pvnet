@@ -16,15 +16,15 @@ from pvnet.utils import DATA_CONFIG_NAME, MODEL_CARD_NAME, MODEL_CONFIG_NAME, PY
 # USER SETTINGS
 
 # The huggingface commit of the model you want to update
-repo_id: str = "openclimatefix/pvnet_uk_region_day_ahead"
-revision: str = "e12f7d7c16a00c41b03aecb787a7e992fbd4235b"
+repo_id: str = "openclimatefix/pvnet_uk_region"
+revision: str = "6feaa986a6bed3cc6c7961c6bf9e92fb15acca6a"
 
 # The local directory which will be downloaded to
 # If set to None a temporary directory will be used
 local_dir: str | None = None 
 
 # Whether to upload the migrated model back to the huggingface - else just saved locally
-upload: bool = True
+upload: bool = False
 
 # ------------------------------------------
 # SETUP
