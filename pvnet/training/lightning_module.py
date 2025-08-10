@@ -39,8 +39,6 @@ class PVNetLightningModule(pl.LightningModule):
             """
             super().__init__()
 
-            # This single line saves all constructor arguments to self.hparams
-            # Ignore model and optimizer as they are complex objects
             self.save_hyperparameters(ignore=["model", "optimizer"])
             self.model = model
             self._optimizer = optimizer
