@@ -210,12 +210,6 @@ class PVNetLightningModule(pl.LightningModule):
             batch = collate_fn([val_dataset[i] for i in idxs])
             batch = self.transfer_batch_to_device(batch, self.device, dataloader_idx=0)
 
-            if self.current_epoch == 0 and plot_num == 0:
-                validate_batch_against_config(
-                    batch=batch, 
-                    model_config=self.hparams.model_config
-                )
-
             with torch.no_grad():
                 y_hat = self.model(batch)
             
@@ -237,6 +231,13 @@ class PVNetLightningModule(pl.LightningModule):
 
     def validation_step(self, batch: TensorBatch, batch_idx: int) -> None:
         """Run validation step"""
+
+        # Batch validation check only during sanity check phase
+        if self.trainer.sanity_checking:
+            validate_batch_against_config(
+                batch=batch,
+                model_config=self.hparams.model_config
+            )
 
         y_hat = self.model(batch)
         # Batch is adapted in the model forward method, but needs to be adapted here too
