@@ -8,6 +8,7 @@ def test_model_trainer_fit(late_fusion_model, uk_streamed_datamodule):
     ligtning_model = PVNetLightningModule(
         model=late_fusion_model,
         optimizer=EmbAdamWReduceLROnPlateau(),
+        model_config=uk_streamed_datamodule,
     )
 
     # Get a sample batch for testing
