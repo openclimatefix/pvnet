@@ -126,23 +126,12 @@ def _check_shape_and_raise(
             )
 
 
-def _get_cfg_param(cfg, key):
-    """
-    Gets a parameter from a config object.
-
-    Handles whether it's DictConfig or functools.partial object.
-    """
-    if hasattr(cfg, 'keywords'):
-        return cfg.keywords[key]
-    else:
-        return getattr(cfg, key)
-
-
 def validate_batch_against_config(
     batch: dict,
     model_config: DictConfig,
     sat_interval_minutes: int = 5,
     gsp_interval_minutes: int = 30,
+    site_interval_minutes: int = 30,
 ) -> None:
     """
     Validates the shapes of tensors in a batch against the model's configuration.
@@ -155,6 +144,7 @@ def validate_batch_against_config(
         model_config: The model's configuration object (e.g., config.model).
         sat_interval_minutes: The time resolution of the satellite data in minutes.
         gsp_interval_minutes: The time resolution of the GSP data in minutes.
+        site_interval_minutes: The time resolution of the GSP data in minutes.
 
     Raises:
         ValueError: If a tensor shape mismatches the expected shape derived from the config.
@@ -162,10 +152,10 @@ def validate_batch_against_config(
     logger.info("Performing batch shape validation against model config.")
     dim_names = ["batch", "time", "channels", "height", "width"]
 
-    if "nwp" in batch and "nwp_encoders_dict" in model_config:
+    if "nwp_encoders_dict" in model_config:
         if "nwp" not in batch:
             raise ValueError(
-                "Model configured with 'nwp_encoders_dict' - 'nwp' data missing from batch."
+                "Model configured with 'nwp_encoders_dict' but 'nwp' data is missing from batch."
             )
         for source, nwp_data_dict in batch["nwp"].items():
             if source not in model_config.nwp_encoders_dict:
@@ -182,9 +172,9 @@ def validate_batch_against_config(
             expected_shape = (
                 nwp_tensor.shape[0],
                 exp_time,
-                _get_cfg_param(cfg, 'in_channels'),
-                _get_cfg_param(cfg, 'image_size_pixels'),
-                _get_cfg_param(cfg, 'image_size_pixels'),
+                cfg.in_channels,
+                cfg.image_size_pixels,
+                cfg.image_size_pixels,
             )
 
             _check_shape_and_raise(f"NWP.{source}",
@@ -192,7 +182,11 @@ def validate_batch_against_config(
             expected_shape,
             dim_names)
 
-    if "sat" in batch and "sat_encoder" in model_config:
+    if "sat_encoder" in model_config:
+        if "sat" not in batch:
+            raise ValueError(
+                "Model configured with 'sat_encoder' but 'sat' data is missing from batch."
+            )
         sat_tensor = batch["sat"]
         cfg = model_config.sat_encoder
         exp_time = model_config.sat_history_minutes // sat_interval_minutes + 1
@@ -200,9 +194,9 @@ def validate_batch_against_config(
         expected_shape = (
             sat_tensor.shape[0],
             exp_time,
-            _get_cfg_param(cfg, 'in_channels'),
-            _get_cfg_param(cfg, 'image_size_pixels'),
-            _get_cfg_param(cfg, 'image_size_pixels'),
+            cfg.in_channels,
+            cfg.image_size_pixels,
+            cfg.image_size_pixels,
         )
 
         _check_shape_and_raise("Satellite", sat_tensor, expected_shape, dim_names)
@@ -216,5 +210,15 @@ def validate_batch_against_config(
 
         expected_shape = (gsp_tensor.shape[0], expected_total_len)
         _check_shape_and_raise("GSP Target", gsp_tensor, expected_shape, dim_names)
+
+    if "site" in batch:
+        site_tensor = batch["site"]
+
+        history_len = model_config.history_minutes // site_interval_minutes
+        forecast_len = model_config.forecast_minutes // site_interval_minutes
+        expected_total_len = history_len + forecast_len + 1
+
+        expected_shape = (site_tensor.shape[0], expected_total_len)
+        _check_shape_and_raise("Site Target", site_tensor, expected_shape, dim_names)
 
     logger.info("Batch shape validation successful.")

@@ -413,11 +413,3 @@ def late_fusion_model_site_history(late_fusion_model_kwargs_site_history) -> Lat
 @pytest.fixture()
 def late_fusion_quantile_model(late_fusion_model_kwargs) -> LateFusionModel:
     return LateFusionModel(output_quantiles=[0.1, 0.5, 0.9], **late_fusion_model_kwargs)
-
-
-@pytest.fixture()
-def late_fusion_model_and_config(raw_late_fusion_model_kwargs):
-    instantiated_kwargs = hydra.utils.instantiate(raw_late_fusion_model_kwargs)
-    model = LateFusionModel(**instantiated_kwargs)    
-    model_config = OmegaConf.create(raw_late_fusion_model_kwargs)
-    return model, model_config

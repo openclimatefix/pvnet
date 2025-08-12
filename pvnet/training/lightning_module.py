@@ -23,26 +23,26 @@ class PVNetLightningModule(pl.LightningModule):
     """Lightning module for training PVNet models"""
 
     def __init__(
-            self,
-            model: BaseModel,
-            optimizer: AbstractOptimizer,
-            model_config: DictConfig,
-            save_all_validation_results: bool = False,
-        ):
-            """Lightning module for training PVNet models
+        self,
+        model: BaseModel,
+        optimizer: AbstractOptimizer,
+        model_config: DictConfig,
+        save_all_validation_results: bool = False,
+    ):
+        """Lightning module for training PVNet models
 
-            Args:
-                model: The PVNet model
-                optimizer: Optimizer
-                model_config: The model configuration.
-                save_all_validation_results: Whether to save all the validation predictions to wandb
-            """
-            super().__init__()
+        Args:
+            model: The PVNet model
+            optimizer: Optimizer
+            model_config: The model configuration.
+            save_all_validation_results: Whether to save all the validation predictions to wandb
+        """
+        super().__init__()
 
-            self.save_hyperparameters(ignore=["model", "optimizer"])
-            self.model = model
-            self._optimizer = optimizer
-            self.lr = None
+        self.save_hyperparameters(ignore=["model", "optimizer"])
+        self.model = model
+        self._optimizer = optimizer
+        self.lr = None
 
     def transfer_batch_to_device(
         self, 
@@ -191,7 +191,23 @@ class PVNetLightningModule(pl.LightningModule):
         self._val_horizon_maes: list[np.array] = []
         if self.current_epoch==0:
             self._val_persistence_horizon_maes: list[np.array] = []
-        
+
+        # Batch validation check only during sanity check phase
+        if self.trainer.sanity_checking:
+            # Get a sample batch to validate against config
+            val_dataset = self.trainer.val_dataloaders.dataset
+            if len(val_dataset) > 0:
+                sample_batch = collate_fn([val_dataset[0]])
+                sample_batch = self.transfer_batch_to_device(
+                    sample_batch,
+                    self.device,
+                    dataloader_idx=0
+                )
+                validate_batch_against_config(
+                    batch=sample_batch,
+                    model_config=self.hparams.model_config
+                )
+
         # Plot some sample forecasts
         val_dataset = self.trainer.val_dataloaders.dataset
 
@@ -229,13 +245,6 @@ class PVNetLightningModule(pl.LightningModule):
 
     def validation_step(self, batch: TensorBatch, batch_idx: int) -> None:
         """Run validation step"""
-
-        # Batch validation check only during sanity check phase
-        if self.trainer.sanity_checking:
-            validate_batch_against_config(
-                batch=batch,
-                model_config=self.hparams.model_config
-            )
 
         y_hat = self.model(batch)
         # Batch is adapted in the model forward method, but needs to be adapted here too
