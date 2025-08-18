@@ -78,6 +78,12 @@ def print_config(
         branch = tree.add(field, style=style, guide_style=style)
 
         config_section = config.get(field)
+
+        if (field == "model" and isinstance(config_section, DictConfig) and 
+            "model_config" in config_section):
+            config_section = OmegaConf.create(config_section)
+            del config_section.model_config
+
         branch_content = str(config_section)
         if isinstance(config_section, DictConfig):
             branch_content = OmegaConf.to_yaml(config_section, resolve=resolve)
