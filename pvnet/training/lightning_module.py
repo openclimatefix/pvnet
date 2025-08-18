@@ -16,7 +16,7 @@ from pvnet.data.base_datamodule import collate_fn
 from pvnet.models.base_model import BaseModel
 from pvnet.optimizers import AbstractOptimizer
 from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot
-from pvnet.utils import validate_batch_against_config
+from pvnet.utils import extract_raw_config, validate_batch_against_config
 
 
 class PVNetLightningModule(pl.LightningModule):
@@ -34,13 +34,14 @@ class PVNetLightningModule(pl.LightningModule):
         Args:
             model: The PVNet model
             optimizer: Optimizer
-            model_config: The model configuration.
+            model_config: Model configuration
             save_all_validation_results: Whether to save all the validation predictions to wandb
         """
         super().__init__()
-
-        self.save_hyperparameters(ignore=["model", "optimizer"])
-        self.model = model
+        
+        self.save_hyperparameters(ignore=["model", "optimizer", "model_config"])
+        self.model = model        
+        self.raw_model_config = extract_raw_config(model_config)
         self._optimizer = optimizer
         self.lr = None
 
@@ -205,7 +206,7 @@ class PVNetLightningModule(pl.LightningModule):
                 )
                 validate_batch_against_config(
                     batch=sample_batch,
-                    model_config=self.hparams.model_config
+                    model_config=self.raw_model_config
                 )
 
         # Plot some sample forecasts

@@ -21,6 +21,7 @@ from pvnet.utils import (
     DATAMODULE_CONFIG_NAME,
     FULL_CONFIG_NAME,
     MODEL_CONFIG_NAME,
+    remove_model_config_circular_ref,
 )
 
 log = logging.getLogger(__name__)
@@ -97,10 +98,12 @@ def train(config: DictConfig) -> None:
                 save_dir = "/".join(callback.dirpath.split("/")[:-1] + [wandb_id])
 
                 callback.dirpath = save_dir
-                
-                # Save the model config
+
+                # Save the model config - exclude model_config circular reference
                 os.makedirs(save_dir, exist_ok=True)
-                OmegaConf.save(config.model, f"{save_dir}/{MODEL_CONFIG_NAME}")
+                cleaned_model_config = remove_model_config_circular_ref(config.model)
+                OmegaConf.save(cleaned_model_config, f"{save_dir}/{MODEL_CONFIG_NAME}")
+
 
                 # If using pre-saved samples we need to extract the data config from the directory
                 # those samples were saved to
@@ -126,8 +129,9 @@ def train(config: DictConfig) -> None:
                 shutil.copyfile(data_config, f"{save_dir}/{DATA_CONFIG_NAME}")
                 wandb_logger.experiment.save(f"{save_dir}/{DATA_CONFIG_NAME}", base_path=save_dir)
 
-                # Save the full hydra config to the output directory and to wandb
-                OmegaConf.save(config, f"{save_dir}/{FULL_CONFIG_NAME}")
+                # Save the full hydra config - exclude model_config circular reference
+                cleaned_config = remove_model_config_circular_ref(config)
+                OmegaConf.save(cleaned_config, f"{save_dir}/{FULL_CONFIG_NAME}")
                 wandb_logger.experiment.save(f"{save_dir}/{FULL_CONFIG_NAME}", base_path=save_dir)
                 
                 break
