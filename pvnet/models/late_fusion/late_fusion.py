@@ -221,7 +221,7 @@ class LateFusionModel(BaseModel):
             assert pv_history_minutes is not None
 
             self.pv_encoder = pv_encoder(
-                sequence_length=pv_history_minutes // pv_interval_minutes + 1,
+                sequence_length=pv_history_minutes // pv_interval_minutes,
                 target_key_to_use=self._target_key,
                 input_key_to_use="site",
             )
@@ -261,7 +261,7 @@ class LateFusionModel(BaseModel):
 
         if include_site_yield_history:
             # Update num features
-            fusion_input_features += self.history_len + 1
+            fusion_input_features += self.history_len
 
         self.output_network = output_network(
             in_features=fusion_input_features,
