@@ -313,7 +313,7 @@ class LateFusionModel(BaseModel):
         # *********************** Site Data *************************************
         # Add site-level yield history
         if self.include_site_yield_history:
-            site_history = x["site"][:, : self.history_len + 1].float()
+            site_history = x["site"][:, : self.history_len].float()
             site_history = site_history.reshape(site_history.shape[0], -1)
             modes["site"] = site_history
 
@@ -325,7 +325,7 @@ class LateFusionModel(BaseModel):
                 # Target is PV, so only take the history
                 # Copy batch
                 x_tmp = x.copy()
-                x_tmp["site"] = x_tmp["site"][:, : self.history_len + 1]
+                x_tmp["site"] = x_tmp["site"][:, : self.history_len]
                 modes["site"] = self.pv_encoder(x_tmp)
 
         # *********************** GSP Data ************************************
