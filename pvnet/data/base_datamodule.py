@@ -173,15 +173,13 @@ class BaseStreamedDataModule(LightningDataModule):
                 self.train_dataset.presave_pickle(f"{self.dataset_pickle_dir}/train_dataset.pkl")
                 self.train_dataset.presave_pickle(f"{self.dataset_pickle_dir}/val_dataset.pkl")
 
-
-    def teardown(self):
+    def teardown(self, stage: str | None = None) -> None:
         """Clean up the pickled datasets"""
         if self.dataset_pickle_dir is not None:
             for filename in ["val_dataset.pkl", "train_dataset.pkl"]:
                 filepath = f"{self.dataset_pickle_dir}/{filename}"
                 if os.path.exists(filepath):
                     os.remove(filepath)
-
 
     def _get_streamed_samples_dataset(
         self,
