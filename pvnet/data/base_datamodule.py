@@ -1,7 +1,7 @@
 """ Data module for pytorch lightning """
 
-from glob import glob
 import os
+from glob import glob
 
 import torch
 from lightning.pytorch import LightningDataModule
