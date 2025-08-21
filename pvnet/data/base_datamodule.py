@@ -126,7 +126,7 @@ class BaseStreamedDataModule(LightningDataModule):
             val_period: Date range filter for val dataloader.
             seed: Random seed used in shuffling datasets.
             dataset_pickle_dir: Directory in which the val and train set will be presaved as
-                pickle objects. Setting this speeds up instatiation of multiple workers a lot.
+                pickle objects. Setting this speeds up instantiation of multiple workers a lot.
         """
         super().__init__()
 
