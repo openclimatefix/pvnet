@@ -16,3 +16,6 @@ val_period:
   - "2023-05-08"
 
 seed: "${seed}"
+
+# Setting the dataset pickle dir will speed up initiation of multiple workers
+dataset_pickle_dir: null

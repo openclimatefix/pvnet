@@ -1,6 +1,7 @@
 """ Data module for pytorch lightning """
 
 from glob import glob
+import os
 
 import torch
 from lightning.pytorch import LightningDataModule
@@ -107,7 +108,7 @@ class BaseStreamedDataModule(LightningDataModule):
         train_period: list[str | None] = [None, None],
         val_period: list[str | None] = [None, None],
         seed: int | None = None,
-
+        dataset_pickle_dir: str | None = None,
     ):
         """Base Datamodule for streaming samples.
 
@@ -124,6 +125,8 @@ class BaseStreamedDataModule(LightningDataModule):
             train_period: Date range filter for train dataloader.
             val_period: Date range filter for val dataloader.
             seed: Random seed used in shuffling datasets.
+            dataset_pickle_dir: Directory in which the val and train set will be presaved as
+                pickle objects. Setting this speeds up instatiation of multiple workers a lot.
         """
         super().__init__()
 
@@ -131,6 +134,7 @@ class BaseStreamedDataModule(LightningDataModule):
         self.train_period = train_period
         self.val_period = val_period
         self.seed = seed
+        self.dataset_pickle_dir = dataset_pickle_dir
 
         self._common_dataloader_kwargs = dict(
             batch_size=batch_size,
@@ -163,6 +167,21 @@ class BaseStreamedDataModule(LightningDataModule):
 
             shuffled_indices = torch.randperm(len(val_dataset))
             self.val_dataset = Subset(val_dataset, shuffled_indices)
+        
+            if self.dataset_pickle_dir is not None:
+                os.makedirs(self.dataset_pickle_dir, exist_ok=True)
+                self.train_dataset.presave_pickle(f"{self.dataset_pickle_dir}/train_dataset.pkl")
+                self.train_dataset.presave_pickle(f"{self.dataset_pickle_dir}/val_dataset.pkl")
+
+
+    def teardown(self):
+        """Clean up the pickled datasets"""
+        if self.dataset_pickle_dir is not None:
+            for filename in ["val_dataset.pkl", "train_dataset.pkl"]:
+                filepath = f"{self.dataset_pickle_dir}/{filename}"
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+
 
     def _get_streamed_samples_dataset(
         self,
