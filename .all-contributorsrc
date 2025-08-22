@@ -178,12 +178,21 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "zaryab-ali",
+      "name": "zaryab-ali",
+      "avatar_url": "https://avatars.githubusercontent.com/u/85732412?v=4",
+      "profile": "https://github.com/zaryab-ali",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
   "skipCi": true,
   "repoType": "github",
   "repoHost": "https://github.com",
-  "projectName": "PVNet",
+  "projectName": "pvnet",
   "projectOwner": "openclimatefix"
 }
