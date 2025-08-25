@@ -16,6 +16,9 @@ from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from safetensors.torch import load_file, save_file
 from torchvision.transforms.functional import center_crop
 
+from torchmetrics.regression import ContinuousRankedProbabilityScore
+from torch.distributions import Normal
+
 from pvnet.utils import (
     DATA_CONFIG_NAME,
     DATAMODULE_CONFIG_NAME,
@@ -392,7 +395,8 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         self,
         history_minutes: int,
         forecast_minutes: int,
-        output_quantiles: list[float] | None = None,
+        output_quantiles: Optional[list[float]] | None = None,
+        num_gmm_components: Optional[int] = None,
         target_key: str = "gsp",
         interval_minutes: int = 30,
     ):
@@ -403,6 +407,8 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
             forecast_minutes (int): Length of the GSP forecast period in minutes
             output_quantiles: A list of float (0.0, 1.0) quantiles to predict values for. If set to
                 None the output is a single value.
+            num_gmm_components: Number of Gaussian Mixture Model components to use for the model. If set to None,
+                output quantiles must be set. If  both None, the output is a single value.
             target_key: The key of the target variable in the batch
             interval_minutes: The interval in minutes between each timestep in the data
         """
@@ -413,6 +419,7 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         self.history_minutes = history_minutes
         self.forecast_minutes = forecast_minutes
         self.output_quantiles = output_quantiles
+        self.num_gmm_components = num_gmm_components
         self.interval_minutes = interval_minutes
 
         # Number of timestemps for 30 minutely data
@@ -422,11 +429,25 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         # Store whether the model should use quantile regression or simply predict the mean
         self.use_quantile_regression = self.output_quantiles is not None
 
+        self.use_gmm = self.num_gmm_components is not None
+
+        # Both quantile regression and GMM cannot be used at the same time
+        if self.use_quantile_regression and self.use_gmm:
+            raise ValueError(
+                "Cannot use quantile regression and GMM at the same time. "
+                "Please set either output_quantiles or num_gmm_components to None."
+            )
+        
         # Store the number of ouput features that the model should predict for
         if self.use_quantile_regression:
             self.num_output_features = self.forecast_len * len(self.output_quantiles)
+        elif self.use_gmm:
+            self.num_output_features = self.forecast_len * self.num_gmm_components * 3
         else:
             self.num_output_features = self.forecast_len
+
+        # CRPS
+        self.crps_metric = ContinuousRankedProbabilityScore()
 
     def _adapt_batch(self, batch: TensorBatch) -> TensorBatch:
         """Slice batches into appropriate shapes for model.
@@ -491,7 +512,34 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
 
         return new_batch
 
-    def _quantiles_to_prediction(self, y_quantiles: torch.Tensor) -> torch.Tensor:
+    def _parse_gmm_params(self, y_gmm):
+        """
+        Reshape flat output into (μ, σ, π) tensors.
+
+        y_gmm: (batch, forecast_len * num_components * 3)
+
+        Returns:
+            mus:    (batch, forecast_len, num_components)
+            sigmas: (batch, forecast_len, num_components)
+            pis:    (batch, forecast_len, num_components)
+        """
+        bsz = y_gmm.shape[0]
+        # reshape to [batch, forecast_len, num_components, 3]
+        params = y_gmm.view(
+            bsz,
+            self.forecast_len,
+            self.num_gmm_components,
+            3,
+        )
+        mus = params[..., 0]
+        # enforce positivity & stability
+        sigmas = F.softplus(params[..., 1]) + 1e-3
+        # softmax over components to get mixture weights
+        logits = params[..., 2]
+        pis = F.softmax(logits, dim=-1)
+        return mus, sigmas, pis
+
+    def _quantiles_to_prediction(self, y_quantiles):
         """
         Convert network prediction into a point prediction.
 
@@ -509,3 +557,53 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         # y_quantiles Shape: batch_size, seq_length, num_quantiles
         idx = self.output_quantiles.index(0.5)
         return y_quantiles[..., idx]
+
+   def _gmm_to_prediction(self, y_gmm):
+        """
+        Compute the mixture’s expectation E[Y] = Σ π_i μ_i
+
+        Args:
+            y_gmm:   (batch, forecast_len * num_components * 3)
+
+        Returns shape (batch, forecast_len)
+        """
+        mus, sigmas, pis = self._parse_gmm_params(y_gmm)
+        # expectation over components
+        y_pred = (pis * mus).sum(dim=-1)  # Here we sum over the components
+        # y_pred shape: (batch, forecast_len)
+        return y_pred
+
+    def _sample_from_gmm(self, mus, sigmas, pis, n_samples=20):
+        """
+        Sample from Gaussian Mixture Model for each timestep and batch.
+
+        Args:
+            mus:    [batch, horizon, components]
+            sigmas: [batch, horizon, components]
+            pis:    [batch, horizon, components]
+            n_samples: Number of samples to draw
+
+        Returns:
+            samples: [n_samples, batch, horizon]
+        """
+        batch, horizon, num_components = mus.shape
+
+        # Sample component indices according to mixture weights (pis)
+        categorical = torch.distributions.Categorical(pis)
+        component_indices = categorical.sample(
+            (n_samples,)
+        )  # [n_samples, batch, horizon]
+
+        # Gather the corresponding μ and σ for each sampled index
+        mus_samples = mus.unsqueeze(0).expand(n_samples, -1, -1, -1)
+        sigmas_samples = sigmas.unsqueeze(0).expand(n_samples, -1, -1, -1)
+
+        idx = component_indices.unsqueeze(-1)
+        gathered_mus = torch.gather(mus_samples, dim=3, index=idx).squeeze(-1)
+        gathered_sigmas = torch.gather(sigmas_samples, dim=3, index=idx).squeeze(-1)
+
+        # Sample from the normal distribution
+        normal = torch.distributions.Normal(gathered_mus, gathered_sigmas)
+        samples = normal.sample()  # [n_samples, batch, horizon]
+
+        return samples

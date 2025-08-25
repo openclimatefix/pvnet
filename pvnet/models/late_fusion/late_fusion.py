@@ -39,6 +39,7 @@ class LateFusionModel(BaseModel):
         self,
         output_network: AbstractLinearNetwork,
         output_quantiles: list[float] | None = None,
+        num_gmm_components: int | None = None,
         nwp_encoders_dict: dict[str, AbstractNWPSatelliteEncoder] | None = None,
         sat_encoder: AbstractNWPSatelliteEncoder | None = None,
         pv_encoder: AbstractSitesEncoder | None = None,
@@ -77,6 +78,9 @@ class LateFusionModel(BaseModel):
                 features to produce the forecast.
             output_quantiles: A list of float (0.0, 1.0) quantiles to predict values for. If set to
                 None the output is a single value.
+            num_gmm_components: If set to an integer, the model will predict parameters for a
+                Gaussian mixture model with this many components. Mutually exclusive with
+                output_quantiles.
             nwp_encoders_dict: A dictionary of partially instantiated pytorch Module class used to
                 encode the NWP data from 4D into a 1D feature vector from different sources.
             sat_encoder: A partially instantiated pytorch Module class used to encode the satellite
@@ -167,11 +171,14 @@ class LateFusionModel(BaseModel):
 
             self.sat_encoder = sat_encoder(
                 sequence_length=self.sat_sequence_len,
-                in_channels=sat_encoder.keywords["in_channels"] + add_image_embedding_channel,
+                in_channels=sat_encoder.keywords["in_channels"]
+                + add_image_embedding_channel,
             )
             if add_image_embedding_channel:
                 self.sat_embed = ImageEmbedding(
-                    num_embeddings, self.sat_sequence_len, self.sat_encoder.image_size_pixels
+                    num_embeddings,
+                    self.sat_sequence_len,
+                    self.sat_encoder.image_size_pixels,
                 )
 
             # Update num features
@@ -196,7 +203,8 @@ class LateFusionModel(BaseModel):
             for nwp_source in nwp_encoders_dict.keys():
                 nwp_sequence_len = (
                     nwp_history_minutes[nwp_source] // nwp_interval_minutes[nwp_source]
-                    + nwp_forecast_minutes[nwp_source] // nwp_interval_minutes[nwp_source]
+                    + nwp_forecast_minutes[nwp_source]
+                    // nwp_interval_minutes[nwp_source]
                     + 1
                 )
 
@@ -230,15 +238,16 @@ class LateFusionModel(BaseModel):
             fusion_input_features += self.pv_encoder.out_features
 
         if self.use_id_embedding:
-            self.embed = nn.Embedding(num_embeddings=num_embeddings, embedding_dim=embedding_dim)
+            self.embed = nn.Embedding(
+                num_embeddings=num_embeddings, embedding_dim=embedding_dim
+            )
 
             # Update num features
             fusion_input_features += embedding_dim
 
         if self.include_sun:
             self.sun_fc1 = nn.Linear(
-                in_features=2
-                * (self.forecast_len + self.history_len + 1),
+                in_features=2 * (self.forecast_len + self.history_len + 1),
                 out_features=16,
             )
 
@@ -247,8 +256,7 @@ class LateFusionModel(BaseModel):
 
         if self.include_time:
             self.time_fc1 = nn.Linear(
-                in_features=4
-                * (self.forecast_len + self.history_len + 1),
+                in_features=4 * (self.forecast_len + self.history_len + 1),
                 out_features=32,
             )
 
@@ -268,7 +276,6 @@ class LateFusionModel(BaseModel):
             out_features=self.num_output_features,
         )
 
-
     def forward(self, x: TensorBatch) -> torch.Tensor:
         """Run model forward"""
 
@@ -278,7 +285,10 @@ class LateFusionModel(BaseModel):
         if self.use_id_embedding:
             # eg: x['gsp_id'] = [1] with location_id_mapping = {1:0}, would give [0]
             id = torch.tensor(
-                [self.location_id_mapping[i.item()] for i in x[f"{self._target_key}_id"]],
+                [
+                    self.location_id_mapping[i.item()]
+                    for i in x[f"{self._target_key}_id"]
+                ],
                 device=x[f"{self._target_key}_id"].device,
                 dtype=torch.int64,
             )
@@ -288,7 +298,9 @@ class LateFusionModel(BaseModel):
         if self.include_sat:
             # Shape: batch_size, seq_length, channel, height, width
             sat_data = x["satellite_actual"][:, : self.sat_sequence_len]
-            sat_data = torch.swapaxes(sat_data, 1, 2).float()  # switch time and channels
+            sat_data = torch.swapaxes(
+                sat_data, 1, 2
+            ).float()  # switch time and channels
 
             if self.add_image_embedding_channel:
                 sat_data = self.sat_embed(sat_data, id)
@@ -343,7 +355,7 @@ class LateFusionModel(BaseModel):
             sun = torch.cat((x["solar_azimuth"], x["solar_elevation"]), dim=1).float()
             sun = self.sun_fc1(sun)
             modes["sun"] = sun
-        
+
         if self.include_time:
             time = [x[k] for k in ["date_sin", "date_cos", "time_sin", "time_cos"]]
             time = torch.cat(time, dim=1).float()
@@ -353,7 +365,15 @@ class LateFusionModel(BaseModel):
         out = self.output_network(modes)
 
         if self.use_quantile_regression:
-            # Shape: batch_size, seq_length * num_quantiles
-            out = out.reshape(out.shape[0], self.forecast_len, len(self.output_quantiles))
+            out = out.view(out.size(0), self.forecast_len, len(self.output_quantiles))
+
+        elif self.use_gmm:
+            # leave as flat vector of length forecast_len * num_components * 3
+            expected = self.forecast_len * self.num_gmm_components * 3
+            assert (
+                out.size(1) == expected
+            ), f"GMM head produced {out.size(1)} features, expected {expected}"
+            # no further reshape needed: BaseModel._parse_gmm_params will view it as
+            # (batch, forecast_len, num_components, 3)
 
         return out
