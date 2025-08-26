@@ -173,7 +173,7 @@ class PVNetLightningModule(pl.LightningModule):
                 crps = self.model.crps_metric(y_hat.reshape(b * h, q), y.reshape(-1))
                 losses["CRPS"] = crps
 
-        if self.use_gmm:
+        if self.model.use_gmm:
             # Convert GMM into samples or quantiles
             mus, sigmas, pis = self.model._parse_gmm_params(y_hat)  # shape: [B, H, C]
 
