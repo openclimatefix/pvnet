@@ -419,8 +419,8 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
             forecast_minutes (int): Length of the GSP forecast period in minutes
             output_quantiles: A list of float (0.0, 1.0) quantiles to predict values for. If set to
                 None the output is a single value.
-            num_gmm_components: Number of Gaussian Mixture Model components to use for the model. If set to None,
-                output quantiles must be set. If  both None, the output is a single value.
+            num_gmm_components: Number of Gaussian Mixture Model components to use for the model.
+            If None, output quantiles must be set. If  both None, the output is a single value.
             target_key: The key of the target variable in the batch
             interval_minutes: The interval in minutes between each timestep in the data
         """
