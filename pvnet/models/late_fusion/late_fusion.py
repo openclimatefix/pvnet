@@ -122,6 +122,7 @@ class LateFusionModel(BaseModel):
             history_minutes=history_minutes,
             forecast_minutes=forecast_minutes,
             output_quantiles=output_quantiles,
+            num_gmm_components=num_gmm_components,
             target_key=target_key,
             interval_minutes=interval_minutes,
         )
