@@ -1,4 +1,5 @@
 """Base model for all PVNet submodels"""
+
 import copy
 import logging
 import os
@@ -6,18 +7,18 @@ import shutil
 import time
 from importlib.metadata import version
 from pathlib import Path
+from typing import Optional
 
 import hydra
 import torch
+import torch.nn.functional as F
 import yaml
 from huggingface_hub import ModelCard, ModelCardData, snapshot_download
 from huggingface_hub.hf_api import HfApi
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from safetensors.torch import load_file, save_file
-from torchvision.transforms.functional import center_crop
-
 from torchmetrics.regression import ContinuousRankedProbabilityScore
-from torch.distributions import Normal
+from torchvision.transforms.functional import center_crop
 
 from pvnet.utils import (
     DATA_CONFIG_NAME,
@@ -29,7 +30,9 @@ from pvnet.utils import (
 )
 
 
-def fill_config_paths_with_placeholder(config: dict, placeholder: str = "PLACEHOLDER") -> dict:
+def fill_config_paths_with_placeholder(
+    config: dict, placeholder: str = "PLACEHOLDER"
+) -> dict:
     """Modify the config in place to fill data paths with placeholder strings.
 
     Args:
@@ -78,14 +81,16 @@ def minimize_config_for_model(config: dict, model: "BaseModel") -> dict:
                     del input_config["nwp"][nwp_source]
                 else:
                     # Replace the image size
-                    nwp_pixel_size = model.nwp_encoders_dict[nwp_source].image_size_pixels
+                    nwp_pixel_size = model.nwp_encoders_dict[
+                        nwp_source
+                    ].image_size_pixels
                     nwp_config["image_size_pixels_height"] = nwp_pixel_size
                     nwp_config["image_size_pixels_width"] = nwp_pixel_size
 
                     # Replace the interval_end_minutes minutes
                     nwp_config["interval_end_minutes"] = (
-                        nwp_config["interval_start_minutes"] +
-                        (model.nwp_encoders_dict[nwp_source].sequence_length - 1)
+                        nwp_config["interval_start_minutes"]
+                        + (model.nwp_encoders_dict[nwp_source].sequence_length - 1)
                         * nwp_config["time_resolution_minutes"]
                     )
 
@@ -102,8 +107,8 @@ def minimize_config_for_model(config: dict, model: "BaseModel") -> dict:
 
             # Replace the interval_end_minutes minutes
             sat_config["interval_end_minutes"] = (
-                sat_config["interval_start_minutes"] +
-                (model.sat_encoder.sequence_length - 1)
+                sat_config["interval_start_minutes"]
+                + (model.sat_encoder.sequence_length - 1)
                 * sat_config["time_resolution_minutes"]
             )
 
@@ -161,7 +166,7 @@ def download_from_hf(
                 return [f"{save_dir}/{f}" for f in filename]
             else:
                 return f"{save_dir}/{filename}"
-        
+
         except Exception as e:
             if attempt == max_retries:
                 raise Exception(
@@ -293,12 +298,14 @@ class HuggingfaceMixin:
         # Save the model config and data config
         if isinstance(model_config, dict):
             with open(save_directory / MODEL_CONFIG_NAME, "w") as outfile:
-                yaml.dump(model_config, outfile, sort_keys=False, default_flow_style=False)
+                yaml.dump(
+                    model_config, outfile, sort_keys=False, default_flow_style=False
+                )
 
         # Save cleaned version of input data configuration file
         with open(data_config_path) as cfg:
             config = yaml.load(cfg, Loader=yaml.FullLoader)
-        
+
         config = fill_config_paths_with_placeholder(config)
         config = minimize_config_for_model(config, self)
 
@@ -307,13 +314,17 @@ class HuggingfaceMixin:
 
         # Save the datamodule config
         if datamodule_config_path is not None:
-            shutil.copyfile(datamodule_config_path, save_directory / DATAMODULE_CONFIG_NAME)
-        
+            shutil.copyfile(
+                datamodule_config_path, save_directory / DATAMODULE_CONFIG_NAME
+            )
+
         # Save the full experimental config
         if experiment_config_path is not None:
             shutil.copyfile(experiment_config_path, save_directory / FULL_CONFIG_NAME)
 
-        card = self.create_hugging_face_model_card(card_template_path, wandb_repo, wandb_ids)
+        card = self.create_hugging_face_model_card(
+            card_template_path, wandb_repo, wandb_ids
+        )
 
         (save_directory / MODEL_CARD_NAME).write_text(str(card))
 
@@ -373,8 +384,9 @@ class HuggingfaceMixin:
 
         # Find package versions for OCF packages
         packages_to_display = ["pvnet", "ocf-data-sampler"]
-        packages_and_versions = {package: version(package) for package in packages_to_display}
-
+        packages_and_versions = {
+            package: version(package) for package in packages_to_display
+        }
 
         package_versions_markdown = ""
         for package, v in packages_and_versions.items():
@@ -437,7 +449,7 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
                 "Cannot use quantile regression and GMM at the same time. "
                 "Please set either output_quantiles or num_gmm_components to None."
             )
-        
+
         # Store the number of ouput features that the model should predict for
         if self.use_quantile_regression:
             self.num_output_features = self.forecast_len * len(self.output_quantiles)
@@ -558,7 +570,7 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         idx = self.output_quantiles.index(0.5)
         return y_quantiles[..., idx]
 
-   def _gmm_to_prediction(self, y_gmm):
+    def _gmm_to_prediction(self, y_gmm):
         """
         Compute the mixture’s expectation E[Y] = Σ π_i μ_i
 
