@@ -407,7 +407,7 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         self,
         history_minutes: int,
         forecast_minutes: int,
-        output_quantiles: Optional[list[float]] | None = None,
+        output_quantiles: Optional[list[float]] = None,
         num_gmm_components: Optional[int] = None,
         target_key: str = "gsp",
         interval_minutes: int = 30,
@@ -551,7 +551,7 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         pis = F.softmax(logits, dim=-1)
         return mus, sigmas, pis
 
-    def _quantiles_to_prediction(self, y_quantiles):
+    def _quantiles_to_prediction(self, y_quantiles: torch.Tensor) -> torch.Tensor:
         """
         Convert network prediction into a point prediction.
 

@@ -14,10 +14,9 @@ from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configuration
 
 from pvnet.data.base_datamodule import collate_fn
-from pvnet.data import  UKRegionalStreamedDataModule, SiteStreamedDataModule
+from pvnet.data import UKRegionalStreamedDataModule, SiteStreamedDataModule
 from pvnet.models import LateFusionModel
-
-
+from pvnet.models.base_model import BaseModel
 
 
 _top_test_directory = os.path.dirname(os.path.realpath(__file__))
@@ -53,8 +52,17 @@ def session_tmp_path(tmp_path_factory):
 @pytest.fixture(scope="session")
 def sat_zarr_path(session_tmp_path) -> str:
     variables = [
-        "IR_016", "IR_039", "IR_087", "IR_097", "IR_108", "IR_120",
-        "IR_134", "VIS006", "VIS008", "WV_062", "WV_073",
+        "IR_016",
+        "IR_039",
+        "IR_087",
+        "IR_097",
+        "IR_108",
+        "IR_120",
+        "IR_134",
+        "VIS006",
+        "VIS008",
+        "WV_062",
+        "WV_073",
     ]
     times = pd.date_range("2023-01-01 00:00", "2023-01-01 23:55", freq="5min")
     y = np.linspace(start=4191563, stop=5304712, num=100)
@@ -90,7 +98,7 @@ def ukv_zarr_path(session_tmp_path) -> str:
     steps = pd.timedelta_range("0h", "24h", freq="1h")
     x = np.linspace(-239_000, 857_000, 200)
     y = np.linspace(-183_000, 1425_000, 200)
-    
+
     coords = (
         ("init_time", init_times),
         ("variable", variables),
@@ -148,18 +156,22 @@ def gsp_zarr_path(session_tmp_path) -> str:
     times = pd.date_range("2023-01-01 00:00", "2023-01-02 00:00", freq="30min")
     gsp_ids = np.arange(0, 318)
     capacity = np.ones((len(times), len(gsp_ids)))
-    generation = np.random.uniform(0, 200, size=(len(times), len(gsp_ids))).astype(np.float32)
+    generation = np.random.uniform(0, 200, size=(len(times), len(gsp_ids))).astype(
+        np.float32
+    )
 
     coords = (
         ("datetime_gmt", times),
         ("gsp_id", gsp_ids),
     )
 
-    ds_uk_gsp = xr.Dataset({
-        "capacity_mwp": xr.DataArray(capacity, coords=coords),
-        "installedcapacity_mwp": xr.DataArray(capacity, coords=coords),
-        "generation_mw": xr.DataArray(generation, coords=coords),
-    })
+    ds_uk_gsp = xr.Dataset(
+        {
+            "capacity_mwp": xr.DataArray(capacity, coords=coords),
+            "installedcapacity_mwp": xr.DataArray(capacity, coords=coords),
+            "generation_mw": xr.DataArray(generation, coords=coords),
+        }
+    )
 
     zarr_path = session_tmp_path / "uk_gsp.zarr"
     ds_uk_gsp.to_zarr(zarr_path)
@@ -179,12 +191,12 @@ def site_data_paths(session_tmp_path) -> tuple[str, str]:
     coords = (("time_utc", times), ("site_id", site_ids))
 
     generation_data = np.random.uniform(
-        low=0, 
-        high=200, 
-        size=tuple(len(coord_values) for _, coord_values in coords)
+        low=0, high=200, size=tuple(len(coord_values) for _, coord_values in coords)
     ).astype(np.float32)
 
-    ds_gen = xr.DataArray(generation_data, coords=coords).to_dataset(name="generation_kw")
+    ds_gen = xr.DataArray(generation_data, coords=coords).to_dataset(
+        name="generation_kw"
+    )
 
     df_meta = pd.DataFrame(
         {
@@ -205,15 +217,13 @@ def site_data_paths(session_tmp_path) -> tuple[str, str]:
 
 @pytest.fixture(scope="session")
 def uk_data_config_path(
-    session_tmp_path, 
-    sat_zarr_path, 
-    ukv_zarr_path, 
-    ecmwf_zarr_path, 
-    gsp_zarr_path
-) -> str:  
-    
+    session_tmp_path, sat_zarr_path, ukv_zarr_path, ecmwf_zarr_path, gsp_zarr_path
+) -> str:
+
     # Populate the config with the generated zarr paths
-    config = load_yaml_configuration(f"{_top_test_directory}/test_data/uk_data_config.yaml")
+    config = load_yaml_configuration(
+        f"{_top_test_directory}/test_data/uk_data_config.yaml"
+    )
     config.input_data.nwp["ukv"].zarr_path = str(ukv_zarr_path)
     config.input_data.nwp["ecmwf"].zarr_path = str(ecmwf_zarr_path)
     config.input_data.satellite.zarr_path = str(sat_zarr_path)
@@ -226,15 +236,17 @@ def uk_data_config_path(
 
 @pytest.fixture(scope="session")
 def site_data_config_path(
-    session_tmp_path, 
-    sat_zarr_path, 
-    ukv_zarr_path, 
-    ecmwf_zarr_path, 
+    session_tmp_path,
+    sat_zarr_path,
+    ukv_zarr_path,
+    ecmwf_zarr_path,
     site_data_paths,
-) -> str:  
-    
+) -> str:
+
     # Populate the config with the generated zarr paths
-    config = load_yaml_configuration(f"{_top_test_directory}/test_data/site_data_config.yaml")
+    config = load_yaml_configuration(
+        f"{_top_test_directory}/test_data/site_data_config.yaml"
+    )
     config.input_data.nwp["ukv"].zarr_path = str(ukv_zarr_path)
     config.input_data.nwp["ecmwf"].zarr_path = str(ecmwf_zarr_path)
     config.input_data.satellite.zarr_path = str(sat_zarr_path)
@@ -309,7 +321,7 @@ def site_encoder_model_kwargs() -> dict:
         sequence_length=60 // 15 + 1,
         num_sites=1,
         out_features=128,
-        target_key_to_use="site"
+        target_key_to_use="site",
     )
 
 
@@ -345,7 +357,6 @@ def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
                 image_size_pixels=12,
             ),
         },
-        
         add_image_embedding_channel=True,
         output_network=dict(
             _target_="pvnet.models.late_fusion.linear_networks.networks.ResFCNet",
@@ -355,7 +366,7 @@ def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
             res_block_layers=2,
             dropout_frac=0.0,
         ),
-        location_id_mapping={i:i for i in range(1, 318)},
+        location_id_mapping={i: i for i in range(1, 318)},
         embedding_dim=16,
         include_sun=True,
         include_gsp_yield_history=True,
@@ -400,22 +411,72 @@ def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs) -> dict:
         include_time=True,
         include_gsp_yield_history=False,
         include_site_yield_history=True,
-        forecast_minutes=480, 
+        forecast_minutes=480,
         history_minutes=60,
         interval_minutes=15,
     )
 
 
 @pytest.fixture()
-def late_fusion_model_kwargs_site_history(raw_late_fusion_model_kwargs_site_history) -> dict:
+def late_fusion_model_kwargs_site_history(
+    raw_late_fusion_model_kwargs_site_history,
+) -> dict:
     return hydra.utils.instantiate(raw_late_fusion_model_kwargs_site_history)
 
 
 @pytest.fixture()
-def late_fusion_model_site_history(late_fusion_model_kwargs_site_history) -> LateFusionModel:
+def late_fusion_model_site_history(
+    late_fusion_model_kwargs_site_history,
+) -> LateFusionModel:
     return LateFusionModel(**late_fusion_model_kwargs_site_history)
 
 
 @pytest.fixture()
 def late_fusion_quantile_model(late_fusion_model_kwargs) -> LateFusionModel:
     return LateFusionModel(output_quantiles=[0.1, 0.5, 0.9], **late_fusion_model_kwargs)
+
+
+@pytest.fixture()
+def gmm_model_factory():
+    """
+    Factory for a minimal GMM-capable model that uses BaseModel's GMM helpers
+    without pulling in encoders or datamodule complexity.
+    Usage in tests: model = gmm_model_factory(forecast_len=H, num_components=K)
+    """
+
+    class _MinimalGMMModel(BaseModel):
+        def __init__(self, forecast_len=3, num_components=2):
+            super().__init__(
+                history_minutes=0,
+                forecast_minutes=forecast_len * 30,  # interval_minutes=30
+                output_quantiles=None,
+                num_gmm_components=num_components,
+                interval_minutes=30,
+            )
+            self.include_sat = False
+            self.include_nwp = False
+            self.include_sun = False
+
+    def factory(forecast_len=3, num_components=2):
+        return _MinimalGMMModel(
+            forecast_len=forecast_len, num_components=num_components
+        )
+
+    return factory
+
+
+@pytest.fixture()
+def build_y_gmm_from_params():
+    """
+    Returns a function that stacks (mus, sigma_raws, logits) into the flat y_gmm
+    shape expected by BaseModel._parse_gmm_params: [B, H*K*3].
+    """
+
+    def _build(
+        mus: torch.Tensor, sigma_raws: torch.Tensor, logits: torch.Tensor
+    ) -> torch.Tensor:
+        B, H, K = mus.shape
+        params = torch.stack([mus, sigma_raws, logits], dim=-1)  # [B, H, K, 3]
+        return params.reshape(B, H * K * 3)
+
+    return _build

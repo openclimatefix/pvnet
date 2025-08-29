@@ -88,7 +88,7 @@ class PVNetLightningModule(pl.LightningModule):
             y_gmm:   (batch, forecast_len * num_components * 3)
             y_true:  (batch, forecast_len)
         """
-        mus, sigmas, pis = self._parse_gmm_params(y_gmm)
+        mus, sigmas, pis = self.mdoel._parse_gmm_params(y_gmm)
         # expand y_true to [batch, forecast_len, num_components]
         y_exp = y_true.unsqueeze(-1).expand_as(mus)
         # compute component log-probs
@@ -120,7 +120,6 @@ class PVNetLightningModule(pl.LightningModule):
 
         if self.model.use_quantile_regression:
             losses["quantile_loss"] = self.model._calculate_quantile_loss(y_hat, y)
-            y_hat = self._quantiles_to_prediction(y_hat)
         elif self.model.use_gmm:
             losses["gmm_loss"] = self.model._calculate_gmm_loss(y_hat, y)
             y_hat = self.model._gmm_to_prediction(y_hat)
