@@ -78,6 +78,7 @@ class BasePresavedDataModule(LightningDataModule):
             worker_init_fn=None,
             prefetch_factor=prefetch_factor,
             persistent_workers=persistent_workers,
+            multiprocessing_context="spawn" if num_workers>0 else None,
         )
 
     def _get_premade_samples_dataset(self, subdir: str) -> Dataset:
@@ -147,6 +148,7 @@ class BaseStreamedDataModule(LightningDataModule):
             worker_init_fn=None,
             prefetch_factor=prefetch_factor,
             persistent_workers=persistent_workers,
+            multiprocessing_context="spawn" if num_workers>0 else None,
         )
 
     def setup(self, stage: str | None = None):
