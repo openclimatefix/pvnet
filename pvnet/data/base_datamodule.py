@@ -170,8 +170,22 @@ class BaseStreamedDataModule(LightningDataModule):
         
             if self.dataset_pickle_dir is not None:
                 os.makedirs(self.dataset_pickle_dir, exist_ok=True)
-                self.train_dataset.presave_pickle(f"{self.dataset_pickle_dir}/train_dataset.pkl")
-                self.train_dataset.presave_pickle(f"{self.dataset_pickle_dir}/val_dataset.pkl")
+                train_dataset_path = f"{self.dataset_pickle_dir}/train_dataset.pkl"
+                val_dataset_path = f"{self.dataset_pickle_dir}/val_dataset.pkl"
+
+                # For safety, these pickled datasets cannot be overwritten.
+                # See: https://github.com/openclimatefix/pvnet/pull/445
+                for path in [train_dataset_path, val_dataset_path]:
+                    if os.path.exists(path):
+                        raise FileExistsError(
+                            f"The pickled dataset path '{path}' already exists. Make sure that "
+                            "this can be safely deleted (i.e. not currently being used by any "
+                            "training run) and delete it manually. Else change the "
+                            "`dataset_pickle_dir` to a different directory."
+                        )
+
+                self.train_dataset.presave_pickle(train_dataset_path)
+                self.train_dataset.presave_pickle(val_dataset_path)
 
     def teardown(self, stage: str | None = None) -> None:
         """Clean up the pickled datasets"""
