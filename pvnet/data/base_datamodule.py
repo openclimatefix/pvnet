@@ -3,7 +3,7 @@
 import os
 from glob import glob
 
-import torch
+import numpy as np
 from lightning.pytorch import LightningDataModule
 from ocf_data_sampler.numpy_sample.collate import stack_np_samples_into_batch
 from ocf_data_sampler.numpy_sample.common_types import NumpySample, TensorBatch
@@ -162,10 +162,7 @@ class BaseStreamedDataModule(LightningDataModule):
             # Prepare and pre-shuffle the val dataset and set seed for reproducibility
             val_dataset = self._get_streamed_samples_dataset(*self.val_period)
 
-            if self.seed is not None:
-                torch.manual_seed(self.seed)
-
-            shuffled_indices = torch.randperm(len(val_dataset))
+            shuffled_indices = np.random.default_rng(seed=self.seed).permutation(len(val_dataset))
             self.val_dataset = Subset(val_dataset, shuffled_indices)
         
             if self.dataset_pickle_dir is not None:
