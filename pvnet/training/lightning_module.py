@@ -223,7 +223,9 @@ class PVNetLightningModule(pl.LightningModule):
 
             plot_name = f"val_forecast_samples/sample_set_{plot_num}"
 
-            self.logger.experiment.log({plot_name: wandb.Image(fig)})
+            # Disabled for testing or using no logger
+            if self.logger:
+                self.logger.experiment.log({plot_name: wandb.Image(fig)})
 
             plt.close(fig)
 
