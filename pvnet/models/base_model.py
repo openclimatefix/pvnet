@@ -17,7 +17,6 @@ from huggingface_hub import ModelCard, ModelCardData, snapshot_download
 from huggingface_hub.hf_api import HfApi
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from safetensors.torch import load_file, save_file
-from torchmetrics.regression import ContinuousRankedProbabilityScore
 from torchvision.transforms.functional import center_crop
 
 from pvnet.utils import (
@@ -458,8 +457,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         else:
             self.num_output_features = self.forecast_len
 
-        # CRPS
-        self.crps_metric = ContinuousRankedProbabilityScore()
 
     def _adapt_batch(self, batch: TensorBatch) -> TensorBatch:
         """Slice batches into appropriate shapes for model.
@@ -572,12 +569,14 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
 
     def _gmm_to_prediction(self, y_gmm):
         """
-        Compute the mixture’s expectation E[Y] = Σ π_i μ_i
+        Return the **mixture mean** E[Y] = Σ_k π_k μ_k as a point forecast.
 
-        Args:
-            y_gmm:   (batch, forecast_len * num_components * 3)
-
-        Returns shape (batch, forecast_len)
+        Note!
+        • This is the mean of the Gaussian mixture, not the median.
+        Quantile/MAE training targets the median.
+        • Potential add in: If a median point forecast is desired, it can be obtained by solving
+        F(x) = Σ_k π_k Φ((x - μ_k)/σ_k) = 0.5 per horizon step (e.g., bisection),
+        or approximated via sampling.
         """
         mus, sigmas, pis = self._parse_gmm_params(y_gmm)
         # expectation over components

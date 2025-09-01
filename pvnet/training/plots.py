@@ -76,6 +76,9 @@ def plot_sample_forecasts(
                 label=r"Mixture Mean",
             )
 
+            # NOTE: The 90% band below is an approximation.
+            # We moment-match the GMM to a single Normal (mean/variance) and use ±1.645 * std.
+            # This will not capture asymmetry or multi-modality of the true GMM...
             lower_bound = mixture_mean - 1.645 * mixture_std
             upper_bound = mixture_mean + 1.645 * mixture_std
             ax.fill_between(

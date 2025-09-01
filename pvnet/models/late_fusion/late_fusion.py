@@ -172,14 +172,11 @@ class LateFusionModel(BaseModel):
 
             self.sat_encoder = sat_encoder(
                 sequence_length=self.sat_sequence_len,
-                in_channels=sat_encoder.keywords["in_channels"]
-                + add_image_embedding_channel,
+                in_channels=sat_encoder.keywords["in_channels"] + add_image_embedding_channel,
             )
             if add_image_embedding_channel:
                 self.sat_embed = ImageEmbedding(
-                    num_embeddings,
-                    self.sat_sequence_len,
-                    self.sat_encoder.image_size_pixels,
+                    num_embeddings, self.sat_sequence_len, self.sat_encoder.image_size_pixels,
                 )
 
             # Update num features
@@ -204,8 +201,7 @@ class LateFusionModel(BaseModel):
             for nwp_source in nwp_encoders_dict.keys():
                 nwp_sequence_len = (
                     nwp_history_minutes[nwp_source] // nwp_interval_minutes[nwp_source]
-                    + nwp_forecast_minutes[nwp_source]
-                    // nwp_interval_minutes[nwp_source]
+                    + nwp_forecast_minutes[nwp_source] // nwp_interval_minutes[nwp_source]
                     + 1
                 )
 
@@ -368,13 +364,7 @@ class LateFusionModel(BaseModel):
         if self.use_quantile_regression:
             out = out.view(out.size(0), self.forecast_len, len(self.output_quantiles))
 
-        elif self.use_gmm:
-            # leave as flat vector of length forecast_len * num_components * 3
-            expected = self.forecast_len * self.num_gmm_components * 3
-            assert (
-                out.size(1) == expected
-            ), f"GMM head produced {out.size(1)} features, expected {expected}"
-            # no further reshape needed: BaseModel._parse_gmm_params will view it as
-            # (batch, forecast_len, num_components, 3)
+        # no further reshape needed if gmm is used: BaseModel._parse_gmm_params will view it as
+        # (batch, forecast_len, num_components, 3)
 
         return out
