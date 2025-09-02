@@ -105,8 +105,9 @@ class PVNetLightningModule(pl.LightningModule):
         """Run training step"""
         y_hat = self.model(batch)
 
-        # Batch is adapted in the model forward method, but needs to be adapted here too
-        batch = self.model._adapt_batch(batch)
+        # Batch may be adapted in the model forward method, would need adapting here too
+        if self.model.adapt_batches:
+            batch = self.model._adapt_batch(batch)
 
         y = batch[self.model._target_key][:, -self.model.forecast_len :]
 
@@ -211,8 +212,9 @@ class PVNetLightningModule(pl.LightningModule):
             with torch.no_grad():
                 y_hat = self.model(batch)
             
-            # Batch is adapted in the model forward method, but needs to be adapted here too
-            batch = self.model._adapt_batch(batch)
+            # Batch may be adapted in the model forward method, would need adapting here too
+            if self.model.adapt_batches:
+                batch = self.model._adapt_batch(batch)
             
             fig = plot_sample_forecasts(
                 batch,
@@ -233,8 +235,9 @@ class PVNetLightningModule(pl.LightningModule):
         """Run validation step"""
 
         y_hat = self.model(batch)
-        # Batch is adapted in the model forward method, but needs to be adapted here too
-        batch = self.model._adapt_batch(batch)
+        # Batch may be adapted in the model forward method, would need adapting here too
+        if self.model.adapt_batches:
+            batch = self.model._adapt_batch(batch)
 
         # Internally store the val predictions
         self._store_val_predictions(batch, y_hat)
