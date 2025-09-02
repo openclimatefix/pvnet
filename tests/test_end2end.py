@@ -15,9 +15,10 @@ def test_model_trainer_fit(session_tmp_path, uk_data_config_path, late_fusion_mo
         dataset_pickle_dir=f"{session_tmp_path}/dataset_pickles"
     )
 
-    ligtning_model = PVNetLightningModule(
+    lightning_model = PVNetLightningModule(
         model=late_fusion_model,
         optimizer=EmbAdamWReduceLROnPlateau(),
+        model_config=datamodule,
     )
 
     # Train the model for two batches
@@ -29,4 +30,4 @@ def test_model_trainer_fit(session_tmp_path, uk_data_config_path, late_fusion_mo
         logger=False, 
         enable_checkpointing=False, 
     )
-    trainer.fit(model=ligtning_model, datamodule=datamodule)
+    trainer.fit(model=lightning_model, datamodule=datamodule)

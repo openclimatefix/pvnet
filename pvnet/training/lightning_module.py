@@ -10,11 +10,13 @@ import wandb
 import xarray as xr
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from ocf_data_sampler.torch_datasets.sample.base import copy_batch_to_device
+from omegaconf import DictConfig
 
 from pvnet.data.base_datamodule import collate_fn
 from pvnet.models.base_model import BaseModel
 from pvnet.optimizers import AbstractOptimizer
 from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot
+from pvnet.utils import extract_raw_config, validate_batch_against_config
 
 
 class PVNetLightningModule(pl.LightningModule):
@@ -24,6 +26,7 @@ class PVNetLightningModule(pl.LightningModule):
         self,
         model: BaseModel,
         optimizer: AbstractOptimizer,
+        model_config: DictConfig,
         save_all_validation_results: bool = False,
     ):
         """Lightning module for training PVNet models
@@ -31,19 +34,19 @@ class PVNetLightningModule(pl.LightningModule):
         Args:
             model: The PVNet model
             optimizer: Optimizer
+            model_config: Model configuration
             save_all_validation_results: Whether to save all the validation predictions to wandb
         """
         super().__init__()
 
+        self.save_hyperparameters(ignore=["model", "optimizer", "model_config"])
         self.model = model
+        self.raw_model_config = extract_raw_config(model_config)
         self._optimizer = optimizer
 
         # Model must have lr to allow tuning
         # This setting is only used when lr is tuned with callback
         self.lr = None
-
-        # Set up store for all all validation results so we can log these
-        self.save_all_validation_results = save_all_validation_results
 
     def transfer_batch_to_device(
         self, 
@@ -192,7 +195,23 @@ class PVNetLightningModule(pl.LightningModule):
         self._val_horizon_maes: list[np.array] = []
         if self.current_epoch==0:
             self._val_persistence_horizon_maes: list[np.array] = []
-        
+
+        # Batch validation check only during sanity check phase
+        if self.trainer.sanity_checking:
+            # Get a sample batch to validate against config
+            val_dataset = self.trainer.val_dataloaders.dataset
+            if len(val_dataset) > 0:
+                sample_batch = collate_fn([val_dataset[0]])
+                sample_batch = self.transfer_batch_to_device(
+                    sample_batch,
+                    self.device,
+                    dataloader_idx=0
+                )
+                validate_batch_against_config(
+                    batch=sample_batch,
+                    model_config=self.raw_model_config
+                )
+
         # Plot some sample forecasts
         val_dataset = self.trainer.val_dataloaders.dataset
 
@@ -314,7 +333,7 @@ class PVNetLightningModule(pl.LightningModule):
             self.log_dict(extreme_error_metrics, on_step=False, on_epoch=True)
 
             # Optionally save all validation results - these are overridden each epoch
-            if self.save_all_validation_results:
+            if self.hparams.save_all_validation_results:
                 # Add attributes
                 ds_val_results.attrs["epoch"] = self.current_epoch
 

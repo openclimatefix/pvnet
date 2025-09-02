@@ -3,6 +3,7 @@ import logging
 
 import rich.syntax
 import rich.tree
+import torch
 from lightning.pytorch.utilities import rank_zero_only
 from omegaconf import DictConfig, OmegaConf
 
@@ -79,6 +80,11 @@ def print_config(
         branch = tree.add(field, style=style, guide_style=style)
 
         config_section = config.get(field)
+        if (field == "model" and isinstance(config_section, DictConfig) and 
+            "model_config" in config_section):
+            config_section = OmegaConf.create(config_section)
+            del config_section.model_config
+
         branch_content = str(config_section)
         if isinstance(config_section, DictConfig):
             branch_content = OmegaConf.to_yaml(config_section, resolve=resolve)
@@ -86,3 +92,140 @@ def print_config(
         branch.add(rich.syntax.Syntax(branch_content, "yaml"))
 
     rich.print(tree)
+
+
+def _check_shape_and_raise(
+    data_key: str, 
+    tensor: torch.Tensor, 
+    expected_shape: tuple, 
+    dim_names: list[str]
+) -> None:
+    """Checks if tensor shape matches expected - raises detailed error on mismatch."""
+    actual_shape = tuple(tensor.shape)
+    if actual_shape == expected_shape:
+        return
+    
+    if len(actual_shape) != len(expected_shape):
+        raise ValueError(
+            f"Shape mismatch for '{data_key}': Expected {len(expected_shape)} dims "
+            f"{expected_shape}, got {len(actual_shape)} dims {actual_shape}."
+        )
+    
+    for i, (actual, expected) in enumerate(zip(actual_shape, expected_shape)):
+        if actual != expected:
+            dim_name = dim_names[i] if i < len(dim_names) else f"dim_{i}"
+            raise ValueError(
+                f"Shape mismatch for '{data_key}' in '{dim_name}': "
+                f"expected {expected}, got {actual}. "
+                f"Expected: {expected_shape}, Actual: {actual_shape}."
+            )
+
+
+def validate_batch_against_config(
+    batch: dict, 
+    model_config, 
+    sat_interval_minutes: int = 5, 
+    gsp_interval_minutes: int = 30, 
+    site_interval_minutes: int = 30
+) -> None:
+    """Validates tensor shapes in batch against model configuration."""
+    logger.info("Performing batch shape validation against model config.")
+    
+    is_instantiated = (
+        hasattr(model_config, 'nwp_encoders_dict') and 
+        not isinstance(model_config, (dict, DictConfig))
+    )
+    if not is_instantiated:
+        logger.info("Batch shape validation successful!")
+        return
+    
+    dim_names = ["batch", "time", "channels", "height", "width"]
+    
+    # NWP validation
+    if hasattr(model_config, 'nwp_encoders_dict') and "nwp" in batch:
+        for source, nwp_data in batch["nwp"].items():
+            if source in model_config.nwp_encoders_dict:
+                encoder = model_config.nwp_encoders_dict[source]
+                expected_shape = (
+                    nwp_data["nwp"].shape[0], 
+                    encoder.sequence_length, 
+                    encoder.in_channels, 
+                    encoder.image_size_pixels, 
+                    encoder.image_size_pixels
+                )
+                _check_shape_and_raise(
+                    f"NWP.{source}", nwp_data["nwp"], expected_shape, dim_names
+                )
+    
+    # Satellite validation
+    if hasattr(model_config, 'sat_encoder') and "sat" in batch:
+        encoder = model_config.sat_encoder
+        expected_shape = (
+            batch["sat"].shape[0], 
+            encoder.sequence_length, 
+            encoder.in_channels, 
+            encoder.image_size_pixels, 
+            encoder.image_size_pixels
+        )
+        _check_shape_and_raise("Satellite", batch["sat"], expected_shape, dim_names)
+    
+    # GSP/Site validation
+    target_configs = [
+        ("gsp", gsp_interval_minutes, "GSP"), 
+        ("site", site_interval_minutes, "Site")
+    ]
+    for key, interval, name in target_configs:
+        if key in batch and hasattr(model_config, 'history_minutes') and \
+           hasattr(model_config, 'forecast_minutes'):
+            history_len = model_config.history_minutes // interval
+            forecast_len = model_config.forecast_minutes // interval
+            expected_len = history_len + forecast_len + 1
+            _check_shape_and_raise(
+                f"{name} Target", 
+                batch[key], 
+                (batch[key].shape[0], expected_len), 
+                ["batch", "time"]
+            )
+    
+    logger.info("Batch shape validation successful!")
+
+
+def extract_raw_config(model_config) -> DictConfig:
+    """Extract raw configuration dictionary from model_config"""
+    if not hasattr(model_config, 'nwp_encoders_dict'):
+        return model_config
+    
+    config_dict = {}
+    
+    # Extract timing attributes
+    for attr in ['forecast_minutes', 'history_minutes', 'sat_history_minutes', 
+                 'nwp_history_minutes', 'nwp_forecast_minutes', 'nwp_interval_minutes']:
+        if hasattr(model_config, attr):
+            config_dict[attr] = getattr(model_config, attr)
+    
+    # Extract encoder configs
+    if hasattr(model_config, 'nwp_encoders_dict'):
+        config_dict['nwp_encoders_dict'] = {
+            source: {'in_channels': getattr(encoder, 'in_channels', None),
+                    'image_size_pixels': getattr(encoder, 'image_size_pixels', None)}
+            for source, encoder in model_config.nwp_encoders_dict.items()
+        }
+    
+    if hasattr(model_config, 'sat_encoder'):
+        config_dict['sat_encoder'] = {
+            'in_channels': getattr(model_config.sat_encoder, 'in_channels', None),
+            'image_size_pixels': getattr(model_config.sat_encoder, 'image_size_pixels', None),
+        }
+    
+    return OmegaConf.create(config_dict)
+
+
+def remove_model_config_circular_ref(config: DictConfig) -> DictConfig:
+    """Remove model_config circular reference from config before saving."""
+    config_copy = OmegaConf.create(config)
+    
+    for path in ["model_config", "model.model_config"]:
+        if OmegaConf.select(config_copy, path) is not None:
+            OmegaConf.set(config_copy, path, OmegaConf.MISSING)
+    
+    return config_copy
