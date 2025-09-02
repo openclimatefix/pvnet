@@ -1,5 +1,4 @@
 import os
-from omegaconf import OmegaConf
 
 import dask.array
 import hydra
@@ -8,7 +7,6 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import torch
-import hydra
 
 from ocf_data_sampler.torch_datasets.sample.site import SiteSample
 from ocf_data_sampler.torch_datasets.datasets import SitesDataset
