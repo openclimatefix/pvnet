@@ -191,33 +191,11 @@ def validate_batch_against_config(
 
 
 def extract_raw_config(model_config) -> DictConfig:
-    """Extract raw configuration dictionary from model_config"""
-    if not hasattr(model_config, 'nwp_encoders_dict'):
-        return model_config
-    
-    config_dict = {}
-    
-    # Extract timing attributes
-    for attr in ['forecast_minutes', 'history_minutes', 'sat_history_minutes', 
-                 'nwp_history_minutes', 'nwp_forecast_minutes', 'nwp_interval_minutes']:
-        if hasattr(model_config, attr):
-            config_dict[attr] = getattr(model_config, attr)
-    
-    # Extract encoder configs
-    if hasattr(model_config, 'nwp_encoders_dict'):
-        config_dict['nwp_encoders_dict'] = {
-            source: {'in_channels': getattr(encoder, 'in_channels', None),
-                    'image_size_pixels': getattr(encoder, 'image_size_pixels', None)}
-            for source, encoder in model_config.nwp_encoders_dict.items()
-        }
-    
-    if hasattr(model_config, 'sat_encoder'):
-        config_dict['sat_encoder'] = {
-            'in_channels': getattr(model_config.sat_encoder, 'in_channels', None),
-            'image_size_pixels': getattr(model_config.sat_encoder, 'image_size_pixels', None),
-        }
-    
-    return OmegaConf.create(config_dict)
+    """Extract raw configuration from model_config"""
+    if isinstance(model_config, dict):
+        return OmegaConf.create(model_config)
+    else:
+        raise TypeError(f"Expected DictConfig or dict, got {type(model_config)}")
 
 
 def remove_model_config_circular_ref(config: DictConfig) -> DictConfig:

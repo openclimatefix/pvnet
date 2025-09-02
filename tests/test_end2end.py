@@ -4,7 +4,7 @@ from pvnet.training.lightning_module import PVNetLightningModule
 from pvnet.optimizers import EmbAdamWReduceLROnPlateau
 
 
-def test_model_trainer_fit(session_tmp_path, uk_data_config_path, late_fusion_model):
+def test_model_trainer_fit(session_tmp_path, uk_data_config_path, late_fusion_model, raw_late_fusion_model_kwargs):
     """Test end-to-end training."""
 
     datamodule = UKRegionalStreamedDataModule(
@@ -18,7 +18,7 @@ def test_model_trainer_fit(session_tmp_path, uk_data_config_path, late_fusion_mo
     lightning_model = PVNetLightningModule(
         model=late_fusion_model,
         optimizer=EmbAdamWReduceLROnPlateau(),
-        model_config=datamodule,
+        model_config=raw_late_fusion_model_kwargs,
     )
 
     # Train the model for two batches
