@@ -206,7 +206,7 @@ class Forecaster:
             periods=self.model.forecast_len,
         )
 
-    @torch.no_grad
+    @torch.inference_mode()
     def predict(self, sample: dict) -> xr.Dataset:
         """Make predictions for the batch and store results internally"""
         
