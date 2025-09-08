@@ -141,7 +141,7 @@ def overwrite_config_dropouts(config: dict) -> dict:
     return config
 
 
-class BacktestSteamedDataset(StreamedDataset):
+class BacktestStreamedDataset(StreamedDataset):
     """A torch dataset object used only for backtesting"""
 
     def _get_sample(self, t0: pd.Timestamp) -> ...:
@@ -167,17 +167,10 @@ class BacktestSteamedDataset(StreamedDataset):
 
 
 class Forecaster:
-    """Class for making and compiling solar forecasts from for all GB GSPs and national total"""
+    """Class for making and solar forecasts for all GB GSPs and national total"""
 
     def __init__(self):
-        """Class for making and compiling solar forecasts from for all GB GSPs and national total
-
-        Args:
-            model_config: The configuration for the model
-            device: Device to run the model on
-            t0: The t0 time used to compile the results to numpy array
-            gsp_capacities: DataArray of the solar capacities for all regional GSPs at t0
-            national_capacity: The national solar capacity at t0
+        """Class for making and solar forecasts for all GB GSPs and national total
         """
         
         # Load the GSP-level model
@@ -257,8 +250,6 @@ class Forecaster:
         sample["relative_capacity"] = sample["relative_capacity"][None].to(device)
         normed_national = self.sum_model(sample).detach().squeeze().cpu().numpy()
 
-        self.sum_model(sample).to(device)
-
         # Convert national predictions to DataArray
         da_normed_national = self.to_dataarray(
             normed_national[np.newaxis],
@@ -333,7 +324,7 @@ if __name__=="__main__":
         yaml.dump(data_config, file, default_flow_style=False)
 
 
-    dataset = BacktestSteamedDataset(
+    dataset = BacktestStreamedDataset(
         config_filename=modified_data_config_filepath,
         start_time=start_datetime,
         end_time=end_datetime,
