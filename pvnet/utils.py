@@ -131,79 +131,61 @@ def validate_batch_against_config(
     """Validates tensor shapes in batch against model configuration."""
     logger.info("Performing batch shape validation against model config.")
     
-    is_instantiated = (
-        hasattr(model_config, 'nwp_encoders_dict') and 
-        not isinstance(model_config, (dict, DictConfig))
-    )
-    if not is_instantiated:
+    if isinstance(model_config, (dict, DictConfig)):
         logger.info("Batch shape validation successful!")
         return
-    
-    dim_names = ["batch", "time", "channels", "height", "width"]
     
     # NWP validation
     if hasattr(model_config, 'nwp_encoders_dict') and "nwp" in batch:
         for source, nwp_data in batch["nwp"].items():
             if source in model_config.nwp_encoders_dict:
-                encoder = model_config.nwp_encoders_dict[source]
-                expected_shape = (
-                    nwp_data["nwp"].shape[0], 
-                    encoder.sequence_length, 
-                    encoder.in_channels, 
-                    encoder.image_size_pixels, 
-                    encoder.image_size_pixels
-                )
-                _check_shape_and_raise(
-                    f"NWP.{source}", nwp_data["nwp"], expected_shape, dim_names
-                )
-    
+                enc = model_config.nwp_encoders_dict[source]
+                expected = (nwp_data["nwp"].shape[0], enc.sequence_length, 
+                           enc.in_channels, enc.image_size_pixels, enc.image_size_pixels)
+                if tuple(nwp_data["nwp"].shape) != expected:
+                    actual_shape = tuple(nwp_data['nwp'].shape)
+                    raise ValueError(
+                        f"NWP.{source} shape mismatch: expected {expected}, got {actual_shape}"
+                    )
+
+
     # Satellite validation
     if hasattr(model_config, 'sat_encoder') and "sat" in batch:
-        encoder = model_config.sat_encoder
-        expected_shape = (
-            batch["sat"].shape[0], 
-            encoder.sequence_length, 
-            encoder.in_channels, 
-            encoder.image_size_pixels, 
-            encoder.image_size_pixels
-        )
-        _check_shape_and_raise("Satellite", batch["sat"], expected_shape, dim_names)
-    
+        enc = model_config.sat_encoder
+        expected = (batch["sat"].shape[0], enc.sequence_length, enc.in_channels, 
+                   enc.image_size_pixels, enc.image_size_pixels)
+        if tuple(batch["sat"].shape) != expected:
+            actual_shape = tuple(batch['sat'].shape)
+            raise ValueError(f"Satellite shape mismatch: expected {expected}, got {actual_shape}")
+
     # GSP/Site validation
-    target_configs = [
-        ("gsp", gsp_interval_minutes, "GSP"), 
-        ("site", site_interval_minutes, "Site")
-    ]
-    for key, interval, name in target_configs:
-        if key in batch and hasattr(model_config, 'history_minutes') and \
-           hasattr(model_config, 'forecast_minutes'):
-            history_len = model_config.history_minutes // interval
-            forecast_len = model_config.forecast_minutes // interval
-            expected_len = history_len + forecast_len + 1
-            _check_shape_and_raise(
-                f"{name} Target", 
-                batch[key], 
-                (batch[key].shape[0], expected_len), 
-                ["batch", "time"]
-            )
-    
+    target_configs = [("gsp", gsp_interval_minutes), ("site", site_interval_minutes)]
+    for key, interval in target_configs:
+        if (key in batch and hasattr(model_config, 'history_minutes') 
+            and hasattr(model_config, 'forecast_minutes')):
+            total_minutes = model_config.history_minutes + model_config.forecast_minutes
+            expected_len = total_minutes // interval + 1
+            expected = (batch[key].shape[0], expected_len)
+            if tuple(batch[key].shape) != expected:
+                actual_shape = tuple(batch[key].shape)
+                raise ValueError(
+                    f"{key.upper()} shape mismatch: expected {expected}, got {actual_shape}"
+                )
+
     logger.info("Batch shape validation successful!")
 
 
-def extract_raw_config(model_config) -> DictConfig:
+def extract_raw_config(model_config):
     """Extract raw configuration from model_config"""
     if isinstance(model_config, dict):
         return OmegaConf.create(model_config)
-    else:
-        raise TypeError(f"Expected DictConfig or dict, got {type(model_config)}")
+    raise TypeError(f"Expected dict, got {type(model_config)}")
 
 
 def remove_model_config_circular_ref(config: DictConfig) -> DictConfig:
     """Remove model_config circular reference from config before saving."""
     config_copy = OmegaConf.create(config)
-    
     for path in ["model_config", "model.model_config"]:
         if OmegaConf.select(config_copy, path) is not None:
             OmegaConf.set(config_copy, path, OmegaConf.MISSING)
-    
     return config_copy
