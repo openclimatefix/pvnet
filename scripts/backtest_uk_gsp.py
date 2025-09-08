@@ -18,18 +18,19 @@ python backtest_uk_gsp.py
 
 import logging
 import os
-import yaml
+
 import numpy as np
-from tqdm import tqdm
 import pandas as pd
 import torch
 import xarray as xr
-from ocf_data_sampler.torch_datasets.sample.base import copy_batch_to_device, batch_to_tensor
-from pvnet.models.base_model import BaseModel as PVNetBaseModel
+import yaml
+from ocf_data_sampler.torch_datasets.sample.base import batch_to_tensor, copy_batch_to_device
+from pvnet_summation.data.datamodule import StreamedDataset
 from pvnet_summation.models.base_model import BaseModel as SummationBaseModel
 from torch.utils.data import DataLoader
-from pvnet_summation.data.datamodule import StreamedDataset
+from tqdm import tqdm
 
+from pvnet.models.base_model import BaseModel as PVNetBaseModel
 
 # ------------------------------------------------------------------
 # USER CONFIGURED VARIABLES
@@ -141,6 +142,7 @@ def overwrite_config_dropouts(config: dict) -> dict:
 
 
 class BacktestSteamedDataset(StreamedDataset):
+    """A torch dataset object used only for backtesting"""
 
     def _get_sample(self, t0: pd.Timestamp) -> ...:
         """Generate a concurrent PVNet sample for given init-time + augment for backtesting.
