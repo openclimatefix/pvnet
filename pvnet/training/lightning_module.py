@@ -32,7 +32,6 @@ class PVNetLightningModule(pl.LightningModule):
         Args:
             model: The PVNet model
             optimizer: Optimizer
-            model_config: Model configuration
             save_all_validation_results: Whether to save all the validation predictions to wandb
         """
         super().__init__()

@@ -176,12 +176,3 @@ def validate_batch_against_config(
                 )
 
     logger.info("Batch shape validation successful!")
-
-
-def remove_model_config_circular_ref(config: DictConfig) -> DictConfig:
-    """Remove model_config circular reference from config before saving."""
-    config_copy = OmegaConf.create(config)
-    for path in ["model_config", "model.model_config"]:
-        if OmegaConf.select(config_copy, path) is not None:
-            OmegaConf.set(config_copy, path, OmegaConf.MISSING)
-    return config_copy
