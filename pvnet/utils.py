@@ -1,11 +1,15 @@
 """Utils"""
 import logging
+from typing import TYPE_CHECKING
 
 import rich.syntax
 import rich.tree
 import torch
 from lightning.pytorch.utilities import rank_zero_only
 from omegaconf import DictConfig, OmegaConf
+
+if TYPE_CHECKING:
+    from pvnet.models.base_model import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +84,6 @@ def print_config(
         branch = tree.add(field, style=style, guide_style=style)
 
         config_section = config.get(field)
-        if (field == "model" and isinstance(config_section, DictConfig) and 
-            "model_config" in config_section):
-            config_section = OmegaConf.create(config_section)
-            del config_section.model_config
 
         branch_content = str(config_section)
         if isinstance(config_section, DictConfig):
@@ -123,17 +123,13 @@ def _check_shape_and_raise(
 
 def validate_batch_against_config(
     batch: dict, 
-    model_config, 
+    model_config: "BaseModel",
     sat_interval_minutes: int = 5, 
     gsp_interval_minutes: int = 30, 
     site_interval_minutes: int = 30
 ) -> None:
     """Validates tensor shapes in batch against model configuration."""
     logger.info("Performing batch shape validation against model config.")
-    
-    if isinstance(model_config, (dict, DictConfig)):
-        logger.warning("Skipping validation - expected model object, got config dict")
-        return
     
     # NWP validation
     if hasattr(model_config, 'nwp_encoders_dict') and "nwp" in batch:
@@ -155,8 +151,12 @@ def validate_batch_against_config(
     # Satellite validation
     if hasattr(model_config, 'sat_encoder') and "sat" in batch:
         enc = model_config.sat_encoder
-        expected = (batch["sat"].shape[0], enc.sequence_length, enc.in_channels, 
-                   enc.image_size_pixels, enc.image_size_pixels)
+        expected_channels = enc.in_channels
+        if hasattr(model_config, "add_image_embedding_channel") and \
+        model_config.add_image_embedding_channel:
+            expected_channels -= 1
+        expected = (batch["sat"].shape[0], enc.sequence_length, expected_channels, 
+                enc.image_size_pixels, enc.image_size_pixels)
         if tuple(batch["sat"].shape) != expected:
             actual_shape = tuple(batch['sat'].shape)
             raise ValueError(f"Satellite shape mismatch: expected {expected}, got {actual_shape}")

@@ -192,22 +192,6 @@ class PVNetLightningModule(pl.LightningModule):
         if self.current_epoch==0:
             self._val_persistence_horizon_maes: list[np.array] = []
 
-        # Batch validation check only during sanity check phase
-        if self.trainer.sanity_checking:
-            # Get a sample batch to validate against config
-            val_dataset = self.trainer.val_dataloaders.dataset
-            if len(val_dataset) > 0:
-                sample_batch = collate_fn([val_dataset[0]])
-                sample_batch = self.transfer_batch_to_device(
-                    sample_batch,
-                    self.device,
-                    dataloader_idx=0
-                )
-                validate_batch_against_config(
-                    batch=sample_batch,
-                    model_config=self.model
-                )
-
         # Plot some sample forecasts
         val_dataset = self.trainer.val_dataloaders.dataset
 
@@ -223,6 +207,14 @@ class PVNetLightningModule(pl.LightningModule):
 
             batch = collate_fn([val_dataset[i] for i in idxs])
             batch = self.transfer_batch_to_device(batch, self.device, dataloader_idx=0)
+            
+            # Batch validation check only during sanity check phase - use first batch
+            if self.trainer.sanity_checking and plot_num == 0:
+                validate_batch_against_config(
+                    batch=batch,
+                    model_config=self.model
+                )
+            
             with torch.no_grad():
                 y_hat = self.model(batch)
             
