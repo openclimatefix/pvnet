@@ -132,22 +132,25 @@ def validate_batch_against_config(
     logger.info("Performing batch shape validation against model config.")
     
     if isinstance(model_config, (dict, DictConfig)):
-        logger.info("Batch shape validation successful!")
+        logger.warning("Skipping validation - expected model object, got config dict")
         return
     
     # NWP validation
     if hasattr(model_config, 'nwp_encoders_dict') and "nwp" in batch:
         for source, nwp_data in batch["nwp"].items():
             if source in model_config.nwp_encoders_dict:
-                enc = model_config.nwp_encoders_dict[source]
+                enc = model_config.nwp_encoders_dict[source]                
+                expected_channels = enc.in_channels
+                if hasattr(model_config, "add_image_embedding_channel") and \
+                   model_config.add_image_embedding_channel:
+                    expected_channels -= 1
                 expected = (nwp_data["nwp"].shape[0], enc.sequence_length, 
-                           enc.in_channels, enc.image_size_pixels, enc.image_size_pixels)
+                           expected_channels, enc.image_size_pixels, enc.image_size_pixels)
                 if tuple(nwp_data["nwp"].shape) != expected:
                     actual_shape = tuple(nwp_data['nwp'].shape)
                     raise ValueError(
                         f"NWP.{source} shape mismatch: expected {expected}, got {actual_shape}"
                     )
-
 
     # Satellite validation
     if hasattr(model_config, 'sat_encoder') and "sat" in batch:
@@ -173,13 +176,6 @@ def validate_batch_against_config(
                 )
 
     logger.info("Batch shape validation successful!")
-
-
-def extract_raw_config(model_config):
-    """Extract raw configuration from model_config"""
-    if isinstance(model_config, dict):
-        return OmegaConf.create(model_config)
-    raise TypeError(f"Expected dict, got {type(model_config)}")
 
 
 def remove_model_config_circular_ref(config: DictConfig) -> DictConfig:

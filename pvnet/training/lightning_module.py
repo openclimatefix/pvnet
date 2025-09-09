@@ -10,13 +10,12 @@ import wandb
 import xarray as xr
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from ocf_data_sampler.torch_datasets.sample.base import copy_batch_to_device
-from omegaconf import DictConfig
 
 from pvnet.data.base_datamodule import collate_fn
 from pvnet.models.base_model import BaseModel
 from pvnet.optimizers import AbstractOptimizer
 from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot
-from pvnet.utils import extract_raw_config, validate_batch_against_config
+from pvnet.utils import validate_batch_against_config
 
 
 class PVNetLightningModule(pl.LightningModule):
@@ -26,7 +25,6 @@ class PVNetLightningModule(pl.LightningModule):
         self,
         model: BaseModel,
         optimizer: AbstractOptimizer,
-        model_config: DictConfig,
         save_all_validation_results: bool = False,
     ):
         """Lightning module for training PVNet models
@@ -39,9 +37,8 @@ class PVNetLightningModule(pl.LightningModule):
         """
         super().__init__()
 
-        self.save_hyperparameters(ignore=["model", "optimizer", "model_config"])
+        self.save_hyperparameters(ignore=["model", "optimizer"])
         self.model = model
-        self.raw_model_config = extract_raw_config(model_config)
         self._optimizer = optimizer
 
         # Model must have lr to allow tuning
@@ -209,7 +206,7 @@ class PVNetLightningModule(pl.LightningModule):
                 )
                 validate_batch_against_config(
                     batch=sample_batch,
-                    model_config=self.raw_model_config
+                    model_config=self.model
                 )
 
         # Plot some sample forecasts
