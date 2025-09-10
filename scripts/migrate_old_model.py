@@ -58,6 +58,11 @@ with open(f"{save_dir}/{MODEL_CONFIG_NAME}") as cfg:
 # Get rid of the optimiser - we don't store this anymore
 del model_config["optimizer"]
 
+# this parameter has been moved out of the model to the pytorch lightning module
+if "save_validation_results_csv" in model_config:
+    del model_config["save_validation_results_csv"]
+
+
 # Rename the top level model
 if model_config["_target_"]=="pvnet.models.multimodal.multimodal.Model":
     model_config["_target_"] = "pvnet.models.LateFusionModel"
@@ -133,7 +138,7 @@ if upload:
     commit_info = api.create_commit(
         repo_id=repo_id,
         operations=operations,
-        commit_message=f"Migrate model to pvnet version {pvnet_version}",
+        commit_message=f"Migrate model (HF commit {revision[:7]}) to pvnet version {pvnet_version}",
     )
 
     # Print the most recent commit hash
