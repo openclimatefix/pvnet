@@ -3,11 +3,9 @@ A script to run backtest for PVNet and the summation model for UK regional and n
 
 Use:
 
-- This script uses hydra to construct the config, just like in `run.py`. So you need to make sure
-  that the data config is set up appropriate for the model being run in this script
-- The PVNet and summation model checkpoints; the time range over which to make predictions are made;
-  and the output directory where the results near the top of the script as hard coded user
-  variables. These should be changed.
+- This script uses exported PVNet and PVNet summation models stored either locally or on huggingface
+- The save directory, model paths, the backtest time range, the input data paths, and number of 
+  workers used are near the top of the script as hard-coded user variables. These should be changed.
 
 
 ```
@@ -65,7 +63,7 @@ backtest_paths = {
             "/mnt/raphael/fast/crops/nwp/ecmwf/uk_v3/ECMWF_2021.zarr",
             "/mnt/raphael/fast/crops/nwp/ecmwf/uk_v3/ECMWF_2022.zarr",
         ], 
-        "cloudcasting": "/mnt/disks/simvp_inputs/simvp_preds.zarr",
+        "cloudcasting": "/mnt/raphael/fast/cloudcasting/simvp.zarr",
     },
     "satellite": [
         "/mnt/raphael/fast/crops/sat/uk_sat_crops/v1/2019_nonhrv.zarr",
@@ -114,10 +112,9 @@ def populate_config_with_data_data_filepaths(config: dict) -> dict:
     if "nwp" in config["input_data"]:
         nwp_config = config["input_data"]["nwp"]
         for nwp_source in nwp_config.keys():
-            if nwp_config[nwp_source]["zarr_path"] != "":
-                provider = nwp_config[nwp_source]["provider"]
-                assert provider in backtest_paths["nwp"], f"Missing NWP path: {provider}"
-                nwp_config[nwp_source]["zarr_path"] = backtest_paths["nwp"][provider]
+            provider = nwp_config[nwp_source]["provider"]
+            assert provider in backtest_paths["nwp"], f"Missing NWP path: {provider}"
+            nwp_config[nwp_source]["zarr_path"] = backtest_paths["nwp"][provider]
 
     return config
 
@@ -265,7 +262,7 @@ class Forecaster:
         # Apply sundown mask - All GSPs must be masked to mask national
         da_abs_national = da_abs_national.where(~da_sundown_mask.all(dim="gsp_id")).fillna(0.0)
 
-        ds_result = xr.concat([da_abs_national, da_abs], dim="gsp_id")
+        ds_result = xr.concat([da_abs_national, da_abs], dim="gsp_id").to_dataset(name="hindcast")
         ds_result.attrs.update(
             {
                 "pvnet_model_name": pvnet_model_name,
