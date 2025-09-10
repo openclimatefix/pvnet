@@ -157,7 +157,6 @@ class BacktestStreamedDataset(StreamedDataset):
                 "backtest_t0": t0,
                 "backtest_national_capacity": total_capacity,
             }
-
         )
 
         return sample
@@ -196,7 +195,7 @@ class Forecaster:
         if sum_expected_gsp_model != this_gsp_model:
             logger.warning(_model_mismatch_msg.format(*this_gsp_model, *sum_expected_gsp_model))
 
-        # These are the steps times this forecast will predict for
+        # These are the steps this forecast will predict for
         self.steps = pd.timedelta_range(
             start="30min", 
             freq="30min", 
@@ -242,7 +241,7 @@ class Forecaster:
         da_abs = da_abs.where(~da_sundown_mask).fillna(0.0)
 
         # Make national predictions using summation model
-        # - Add batch dimension and convert to torch tensors on device
+        # - Need to add batch dimension and convert to torch tensors on device
         sample["pvnet_outputs"] = torch.tensor(normed_preds[None]).to(device)
         sample["relative_capacity"] = sample["relative_capacity"][None].to(device)
         normed_national = self.sum_model(sample).detach().squeeze().cpu().numpy()
@@ -255,13 +254,14 @@ class Forecaster:
             output_quantiles=self.sum_model.output_quantiles,
         )
 
-        # Multiply normalised forecasts by capacity, clip negatives
+        # Multiply normalised forecasts by capacity and clip negatives
         national_capacity = sample["backtest_national_capacity"]
         da_abs_national = da_normed_national.clip(0, None) * national_capacity
 
         # Apply sundown mask - All GSPs must be masked to mask national
         da_abs_national = da_abs_national.where(~da_sundown_mask.all(dim="gsp_id")).fillna(0.0)
 
+        # Convert to Dataset and add attrs about the models used
         ds_result = xr.concat([da_abs_national, da_abs], dim="gsp_id").to_dataset(name="hindcast")
         ds_result.attrs.update(
             {
@@ -272,7 +272,7 @@ class Forecaster:
             }
         )
 
-        return t0, ds_result
+        return ds_result
 
     def to_dataarray(
         self,
@@ -352,9 +352,10 @@ if __name__=="__main__":
     pbar = tqdm(total=len(dataloader))
     for sample in dataloader:
         # Make predictions for the init-time
-        t0, ds_abs_all = forecaster.predict(sample)
+        ds_abs_all = forecaster.predict(sample)
 
         # Save the predictions
+        t0 = pd.Timestamp(ds_abs_all.init_time_utc.item())
         filename = f"{output_dir}/{t0}.nc"
         ds_abs_all.to_netcdf(filename)
 
@@ -363,5 +364,6 @@ if __name__=="__main__":
     # Close down
     pbar.close()
 
+    # Clean up
     if num_workers>0:
         os.remove(f"{output_dir}/dataset.pkl")
