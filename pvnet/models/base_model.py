@@ -141,7 +141,9 @@ def download_from_hf(
         force_download: Whether to force a new download
         max_retries: Maximum number of retry attempts
         wait_time: Wait time (in seconds) before retrying
-        token: HuggingFace authentication token
+        token: 
+            HF authentication token. If True, the token is read from the HuggingFace config folder.
+            If a string, it is used as the authentication token. 
 
     Returns:
         The local file path of the downloaded file(s)
