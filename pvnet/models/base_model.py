@@ -189,6 +189,7 @@ class HuggingfaceMixin:
         cache_dir: str | None = None,
         force_download: bool = False,
         strict: bool = True,
+        token: bool | str | None = None,
     ) -> "BaseModel":
         """Load Pytorch pretrained weights and return the loaded model."""
 
@@ -207,6 +208,7 @@ class HuggingfaceMixin:
                 force_download=force_download,
                 max_retries=5,
                 wait_time=10,
+                token=token
             )
 
         with open(config_file, "r") as f:
