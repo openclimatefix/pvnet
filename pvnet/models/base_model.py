@@ -129,6 +129,7 @@ def download_from_hf(
     force_download: bool,
     max_retries: int = 5,
     wait_time: int = 10,
+    token: bool | str | None = None,
 ) -> str | list[str]:
     """Tries to download one or more files from HuggingFace up to max_retries times.
 
@@ -140,6 +141,7 @@ def download_from_hf(
         force_download: Whether to force a new download
         max_retries: Maximum number of retry attempts
         wait_time: Wait time (in seconds) before retrying
+        token: HuggingFace authentication token
 
     Returns:
         The local file path of the downloaded file(s)
@@ -152,6 +154,7 @@ def download_from_hf(
                 revision=revision,
                 cache_dir=cache_dir,
                 force_download=force_download,
+                token=token,
             )
 
             if isinstance(filename, list):
@@ -220,6 +223,7 @@ class HuggingfaceMixin:
         revision: str,
         cache_dir: str | None = None,
         force_download: bool = False,
+        token: bool | str | None = None,
     ) -> str:
         """Load data config file."""
         if os.path.isdir(model_id):
@@ -235,6 +239,7 @@ class HuggingfaceMixin:
                 force_download=force_download,
                 max_retries=5,
                 wait_time=10,
+                token=token
             )
 
         return data_config_file
