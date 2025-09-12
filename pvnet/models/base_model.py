@@ -1,5 +1,4 @@
 """Base model for all PVNet submodels"""
-import copy
 import logging
 import os
 import shutil
@@ -12,9 +11,7 @@ import torch
 import yaml
 from huggingface_hub import ModelCard, ModelCardData, snapshot_download
 from huggingface_hub.hf_api import HfApi
-from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from safetensors.torch import load_file, save_file
-from torchvision.transforms.functional import center_crop
 
 from pvnet.utils import (
     DATA_CONFIG_NAME,
