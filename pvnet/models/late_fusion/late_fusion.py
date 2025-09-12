@@ -61,7 +61,6 @@ class LateFusionModel(BaseModel):
         nwp_interval_minutes: DictConfig | None = None,
         pv_interval_minutes: int = 5,
         sat_interval_minutes: int = 5,
-        adapt_batches: bool = False,
     ):
         """Neural network which combines information from different sources.
 
@@ -110,9 +109,6 @@ class LateFusionModel(BaseModel):
                 data for each source
             pv_interval_minutes: The interval between each sample of the PV data
             sat_interval_minutes: The interval between each sample of the satellite data
-            adapt_batches: If set to true, we attempt to slice the batches to the expected shape for
-                the model to use. This allows us to overprepare batches and slice from them for the
-                data we need for a model run.
         """
         super().__init__(
             history_minutes=history_minutes,
@@ -134,7 +130,6 @@ class LateFusionModel(BaseModel):
         self.add_image_embedding_channel = add_image_embedding_channel
         self.interval_minutes = interval_minutes
         self.min_sat_delay_minutes = min_sat_delay_minutes
-        self.adapt_batches = adapt_batches
 
         if self.location_id_mapping is None:
             logger.warning(
@@ -271,9 +266,6 @@ class LateFusionModel(BaseModel):
 
     def forward(self, x: TensorBatch) -> torch.Tensor:
         """Run model forward"""
-
-        if self.adapt_batches:
-            x = self._adapt_batch(x)
 
         if self.use_id_embedding:
             # eg: x['gsp_id'] = [1] with location_id_mapping = {1:0}, would give [0]

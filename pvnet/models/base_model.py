@@ -1,5 +1,4 @@
 """Base model for all PVNet submodels"""
-import copy
 import logging
 import os
 import shutil
@@ -12,9 +11,7 @@ import torch
 import yaml
 from huggingface_hub import ModelCard, ModelCardData, snapshot_download
 from huggingface_hub.hf_api import HfApi
-from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from safetensors.torch import load_file, save_file
-from torchvision.transforms.functional import center_crop
 
 from pvnet.utils import (
     DATA_CONFIG_NAME,
@@ -436,69 +433,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
             self.num_output_features = self.forecast_len * len(self.output_quantiles)
         else:
             self.num_output_features = self.forecast_len
-
-    def _adapt_batch(self, batch: TensorBatch) -> TensorBatch:
-        """Slice batches into appropriate shapes for model.
-
-        Returns a new batch dictionary with adapted data, leaving the original batch unchanged.
-        We make some specific assumptions about the original batch and the derived sliced batch:
-        - We are only limiting the future projections. I.e. we are never shrinking the batch from
-          the left hand side of the time axis, only slicing it from the right
-        - We are only shrinking the spatial crop of the satellite and NWP data
-
-        """
-        # Create a copy of the batch to avoid modifying the original
-        new_batch = {key: copy.deepcopy(value) for key, value in batch.items()}
-
-        if "gsp" in new_batch.keys():
-            # Slice off the end of the GSP data
-            gsp_len = self.forecast_len + self.history_len + 1
-            new_batch["gsp"] = new_batch["gsp"][:, :gsp_len]
-            new_batch["gsp_time_utc"] = new_batch["gsp_time_utc"][:, :gsp_len]
-
-        if "site" in new_batch.keys():
-            # Slice off the end of the site data
-            site_len = self.forecast_len + self.history_len + 1
-            new_batch["site"] = new_batch["site"][:, :site_len]
-
-            # Slice all site related datetime coordinates and features
-            site_time_keys = [
-                "site_time_utc",
-                "site_date_sin",
-                "site_date_cos",
-                "site_time_sin",
-                "site_time_cos",
-            ]
-
-            for key in site_time_keys:
-                if key in new_batch.keys():
-                    new_batch[key] = new_batch[key][:, :site_len]
-
-        if self.include_sat:
-            # Slice off the end of the satellite data and spatially crop
-            # Shape: batch_size, seq_length, channel, height, width
-            new_batch["satellite_actual"] = center_crop(
-                new_batch["satellite_actual"][:, : self.sat_sequence_len],
-                output_size=self.sat_encoder.image_size_pixels,
-            )
-
-        if self.include_nwp:
-            # Slice off the end of the NWP data and spatially crop
-            for nwp_source in self.nwp_encoders_dict:
-                # shape: batch_size, seq_len, n_chans, height, width
-                new_batch["nwp"][nwp_source]["nwp"] = center_crop(
-                    new_batch["nwp"][nwp_source]["nwp"],
-                    output_size=self.nwp_encoders_dict[nwp_source].image_size_pixels,
-                )[:, : self.nwp_encoders_dict[nwp_source].sequence_length]
-
-        if self.include_sun:
-            sun_len = self.forecast_len + self.history_len + 1
-            # Slice off end of solar coords
-            for s in ["solar_azimuth", "solar_elevation"]:
-                if s in new_batch.keys():
-                    new_batch[s] = new_batch[s][:, :sun_len]
-
-        return new_batch
 
     def _quantiles_to_prediction(self, y_quantiles: torch.Tensor) -> torch.Tensor:
         """
