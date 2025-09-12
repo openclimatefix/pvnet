@@ -1,4 +1,7 @@
-"""Script to migrate old PVNet models (v4.1) which are hosted on huggingface to current version"""
+"""Script to migrate old PVNet models which are hosted on huggingface to current version
+
+This script can be used to update models from version >= v4.1
+"""
 import datetime
 import os
 import tempfile
@@ -56,16 +59,22 @@ with open(f"{save_dir}/{MODEL_CONFIG_NAME}") as cfg:
     model_config = yaml.load(cfg, Loader=yaml.FullLoader)
 
 # Get rid of the optimiser - we don't store this anymore
-del model_config["optimizer"]
+if "optimizer" in model_config:
+    del model_config["optimizer"]
 
-# this parameter has been moved out of the model to the pytorch lightning module
+# This parameter has been moved out of the model to the pytorch lightning module
 if "save_validation_results_csv" in model_config:
     del model_config["save_validation_results_csv"]
 
+# This parameter has removed
+if "adapt_batches" in model_config:
+    del model_config["adapt_batches"]
 
 # Rename the top level model
 if model_config["_target_"]=="pvnet.models.multimodal.multimodal.Model":
     model_config["_target_"] = "pvnet.models.LateFusionModel"
+elif model_config["_target_"] == "pvnet.models.LateFusionModel":
+    pass
 else:
     raise Exception("Unknown model: " + model_config["_target_"])
 
@@ -91,10 +100,13 @@ for component in ["sat_encoder", "pv_encoder", "output_network"]:
 with open(f"{save_dir}/{MODEL_CONFIG_NAME}", "w") as f:
     yaml.dump(model_config, f, sort_keys=False, default_flow_style=False)
 
-# Resave the model weights as safetensors
-state_dict = torch.load(f"{save_dir}/pytorch_model.bin", map_location="cpu", weights_only=True)
-save_file(state_dict, f"{save_dir}/{PYTORCH_WEIGHTS_NAME}")
-os.remove(f"{save_dir}/pytorch_model.bin")
+# Resave the model weights as safetensors if in old format
+if os.path.exists(f"{save_dir}/pytorch_model.bin"):
+    state_dict = torch.load(f"{save_dir}/pytorch_model.bin", map_location="cpu", weights_only=True)
+    save_file(state_dict, f"{save_dir}/{PYTORCH_WEIGHTS_NAME}")
+    os.remove(f"{save_dir}/pytorch_model.bin")
+else:
+    assert os.path.exists(f"{save_dir}/{PYTORCH_WEIGHTS_NAME}")
 
 # Add a note to the model card to say the model has been migrated
 with open(f"{save_dir}/{MODEL_CARD_NAME}", "a") as f:
