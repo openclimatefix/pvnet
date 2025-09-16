@@ -1,5 +1,7 @@
 """Tests for model validation utility function."""
 
+import pytest
+import torch
 
 from pvnet.utils import validate_batch_against_config
 
@@ -10,33 +12,19 @@ def test_validate_batch_against_config(
 ):
    """Test batch validation utility function."""
 
-   if "satellite_actual" in uk_batch:
-       uk_batch["sat"] = uk_batch.pop("satellite_actual")
+   # This should pass as full uk_batch is valid
+   validate_batch_against_config(batch=uk_batch, model=late_fusion_model)
 
-   validate_batch_against_config(batch=uk_batch, model_config=late_fusion_model)
 
-   # Test with different interval parameters
-   validate_batch_against_config(
-       batch=uk_batch, 
-       model_config=late_fusion_model,
-       sat_interval_minutes=10,
-       gsp_interval_minutes=30,
-       site_interval_minutes=60
-   )
-
-   # Test with missing optional batch keys - should not raise errors
-   minimal_batch = {"gsp": uk_batch.get("gsp", [])}
-   validate_batch_against_config(batch=minimal_batch, model_config=late_fusion_model)
-
-   # Test with empty batch - should not raise errors
-   empty_batch = {}
-   validate_batch_against_config(batch=empty_batch, model_config=late_fusion_model)
-
-   # Test function completes properly
-   if "nwp" in uk_batch:
-       nwp_only_batch = {"nwp": uk_batch["nwp"]}
-       validate_batch_against_config(batch=nwp_only_batch, model_config=late_fusion_model)
-
-   if "sat" in uk_batch:
-       sat_only_batch = {"sat": uk_batch["sat"]}
-       validate_batch_against_config(batch=sat_only_batch, model_config=late_fusion_model)
+def test_validate_batch_against_config_raises_error(late_fusion_model):
+    """Test that the validation raises an error for a mismatched batch."""
+    
+    # Create batch that is missing required NWP data
+    minimal_batch = {"gsp": torch.randn(2, 17)}
+    
+    # Assert that correct ValueError is raised
+    with pytest.raises(
+        ValueError, 
+        match="Model configured with 'nwp_encoders_dict' but 'nwp' data missing from batch."
+    ):
+        validate_batch_against_config(batch=minimal_batch, model=late_fusion_model)

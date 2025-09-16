@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 import rich.syntax
 import rich.tree
-import torch
 from lightning.pytorch.utilities import rank_zero_only
 from omegaconf import DictConfig, OmegaConf
 
@@ -94,52 +93,28 @@ def print_config(
     rich.print(tree)
 
 
-def _check_shape_and_raise(
-    data_key: str, 
-    tensor: torch.Tensor, 
-    expected_shape: tuple, 
-    dim_names: list[str]
-) -> None:
-    """Checks if tensor shape matches expected - raises detailed error on mismatch."""
-    actual_shape = tuple(tensor.shape)
-    if actual_shape == expected_shape:
-        return
-    
-    if len(actual_shape) != len(expected_shape):
-        raise ValueError(
-            f"Shape mismatch for '{data_key}': Expected {len(expected_shape)} dims "
-            f"{expected_shape}, got {len(actual_shape)} dims {actual_shape}."
-        )
-    
-    for i, (actual, expected) in enumerate(zip(actual_shape, expected_shape)):
-        if actual != expected:
-            dim_name = dim_names[i] if i < len(dim_names) else f"dim_{i}"
-            raise ValueError(
-                f"Shape mismatch for '{data_key}' in '{dim_name}': "
-                f"expected {expected}, got {actual}. "
-                f"Expected: {expected_shape}, Actual: {actual_shape}."
-            )
-
-
 def validate_batch_against_config(
     batch: dict, 
-    model_config: "BaseModel",
-    sat_interval_minutes: int = 5, 
-    gsp_interval_minutes: int = 30, 
-    site_interval_minutes: int = 30
+    model: "BaseModel",
 ) -> None:
     """Validates tensor shapes in batch against model configuration."""
     logger.info("Performing batch shape validation against model config.")
     
     # NWP validation
-    if hasattr(model_config, 'nwp_encoders_dict') and "nwp" in batch:
+    if hasattr(model, 'nwp_encoders_dict'):
+        if "nwp" not in batch:
+            raise ValueError(
+                "Model configured with 'nwp_encoders_dict' but 'nwp' data missing from batch."
+            )
+            
         for source, nwp_data in batch["nwp"].items():
-            if source in model_config.nwp_encoders_dict:
-                enc = model_config.nwp_encoders_dict[source]                
+            if source in model.nwp_encoders_dict:
+
+                enc = model.nwp_encoders_dict[source]                
                 expected_channels = enc.in_channels
-                if hasattr(model_config, "add_image_embedding_channel") and \
-                   model_config.add_image_embedding_channel:
+                if model.add_image_embedding_channel:
                     expected_channels -= 1
+
                 expected = (nwp_data["nwp"].shape[0], enc.sequence_length, 
                            expected_channels, enc.image_size_pixels, enc.image_size_pixels)
                 if tuple(nwp_data["nwp"].shape) != expected:
@@ -149,30 +124,34 @@ def validate_batch_against_config(
                     )
 
     # Satellite validation
-    if hasattr(model_config, 'sat_encoder') and "sat" in batch:
-        enc = model_config.sat_encoder
+    if hasattr(model, 'sat_encoder'):
+        if "satellite_actual" not in batch:
+            raise ValueError(
+                "Model configured with 'sat_encoder' but 'satellite_actual' missing from batch."
+            )
+
+        enc = model.sat_encoder
         expected_channels = enc.in_channels
-        if hasattr(model_config, "add_image_embedding_channel") and \
-        model_config.add_image_embedding_channel:
+        if model.add_image_embedding_channel:
             expected_channels -= 1
-        expected = (batch["sat"].shape[0], enc.sequence_length, expected_channels, 
+
+        expected = (batch["satellite_actual"].shape[0], enc.sequence_length, expected_channels, 
                 enc.image_size_pixels, enc.image_size_pixels)
-        if tuple(batch["sat"].shape) != expected:
-            actual_shape = tuple(batch['sat'].shape)
+        if tuple(batch["satellite_actual"].shape) != expected:
+            actual_shape = tuple(batch['satellite_actual'].shape)
             raise ValueError(f"Satellite shape mismatch: expected {expected}, got {actual_shape}")
 
     # GSP/Site validation
-    target_configs = [("gsp", gsp_interval_minutes), ("site", site_interval_minutes)]
-    for key, interval in target_configs:
-        if (key in batch and hasattr(model_config, 'history_minutes') 
-            and hasattr(model_config, 'forecast_minutes')):
-            total_minutes = model_config.history_minutes + model_config.forecast_minutes
-            expected_len = total_minutes // interval + 1
-            expected = (batch[key].shape[0], expected_len)
-            if tuple(batch[key].shape) != expected:
-                actual_shape = tuple(batch[key].shape)
-                raise ValueError(
-                    f"{key.upper()} shape mismatch: expected {expected}, got {actual_shape}"
-                )
+    key = model._target_key
+    if key in batch:
+        total_minutes = model.history_minutes + model.forecast_minutes
+        interval = model.interval_minutes
+        expected_len = total_minutes // interval + 1
+        expected = (batch[key].shape[0], expected_len)
+        if tuple(batch[key].shape) != expected:
+            actual_shape = tuple(batch[key].shape)
+            raise ValueError(
+                f"{key.upper()} shape mismatch: expected {expected}, got {actual_shape}"
+            )
 
     logger.info("Batch shape validation successful!")
