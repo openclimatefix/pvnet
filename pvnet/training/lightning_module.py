@@ -36,7 +36,6 @@ class PVNetLightningModule(pl.LightningModule):
         """
         super().__init__()
 
-        self.save_hyperparameters(ignore=["model", "optimizer"])
         self.model = model
         self._optimizer = optimizer
 
@@ -207,9 +206,6 @@ class PVNetLightningModule(pl.LightningModule):
 
             batch = collate_fn([val_dataset[i] for i in idxs])
             batch = self.transfer_batch_to_device(batch, self.device, dataloader_idx=0)
-
-            # if "satellite_actual" in batch:
-            #     batch["sat"] = batch["satellite_actual"]
 
             # Batch validation check only during sanity check phase - use first batch
             if self.trainer.sanity_checking and plot_num == 0:
