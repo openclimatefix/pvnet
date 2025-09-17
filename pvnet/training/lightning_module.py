@@ -15,6 +15,7 @@ from pvnet.data.base_datamodule import collate_fn
 from pvnet.models.base_model import BaseModel
 from pvnet.optimizers import AbstractOptimizer
 from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot
+from pvnet.utils import validate_batch_against_config
 
 
 class PVNetLightningModule(pl.LightningModule):
@@ -41,9 +42,6 @@ class PVNetLightningModule(pl.LightningModule):
         # Model must have lr to allow tuning
         # This setting is only used when lr is tuned with callback
         self.lr = None
-
-        # Set up store for all all validation results so we can log these
-        self.save_all_validation_results = save_all_validation_results
 
     def transfer_batch_to_device(
         self, 
@@ -189,7 +187,7 @@ class PVNetLightningModule(pl.LightningModule):
         self._val_horizon_maes: list[np.array] = []
         if self.current_epoch==0:
             self._val_persistence_horizon_maes: list[np.array] = []
-        
+
         # Plot some sample forecasts
         val_dataset = self.trainer.val_dataloaders.dataset
 
@@ -205,6 +203,14 @@ class PVNetLightningModule(pl.LightningModule):
 
             batch = collate_fn([val_dataset[i] for i in idxs])
             batch = self.transfer_batch_to_device(batch, self.device, dataloader_idx=0)
+
+            # Batch validation check only during sanity check phase - use first batch
+            if self.trainer.sanity_checking and plot_num == 0:
+                validate_batch_against_config(
+                    batch=batch,
+                    model=self.model
+                )
+            
             with torch.no_grad():
                 y_hat = self.model(batch)
             
@@ -306,7 +312,7 @@ class PVNetLightningModule(pl.LightningModule):
             self.log_dict(extreme_error_metrics, on_step=False, on_epoch=True)
 
             # Optionally save all validation results - these are overridden each epoch
-            if self.save_all_validation_results:
+            if self.hparams.save_all_validation_results:
                 # Add attributes
                 ds_val_results.attrs["epoch"] = self.current_epoch
 

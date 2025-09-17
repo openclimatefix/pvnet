@@ -1,7 +1,8 @@
 import lightning
-from pvnet.data import  UKRegionalStreamedDataModule
-from pvnet.training.lightning_module import PVNetLightningModule
+
+from pvnet.data import UKRegionalStreamedDataModule
 from pvnet.optimizers import EmbAdamWReduceLROnPlateau
+from pvnet.training.lightning_module import PVNetLightningModule
 
 
 def test_model_trainer_fit(session_tmp_path, uk_data_config_path, late_fusion_model):
@@ -15,7 +16,7 @@ def test_model_trainer_fit(session_tmp_path, uk_data_config_path, late_fusion_mo
         dataset_pickle_dir=f"{session_tmp_path}/dataset_pickles"
     )
 
-    ligtning_model = PVNetLightningModule(
+    lightning_model = PVNetLightningModule(
         model=late_fusion_model,
         optimizer=EmbAdamWReduceLROnPlateau(),
     )
@@ -29,4 +30,4 @@ def test_model_trainer_fit(session_tmp_path, uk_data_config_path, late_fusion_mo
         logger=False, 
         enable_checkpointing=False, 
     )
-    trainer.fit(model=ligtning_model, datamodule=datamodule)
+    trainer.fit(model=lightning_model, datamodule=datamodule)
