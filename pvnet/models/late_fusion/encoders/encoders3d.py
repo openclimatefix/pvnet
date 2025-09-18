@@ -24,7 +24,8 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
         fc_features: int = 128,
         spatial_kernel_size: int = 3,
         temporal_kernel_size: int = 3,
-        padding: int | tuple[int] = (1, 0, 0),
+        padding: int | tuple[int, ...] = (1, 0, 0),
+        stride: int | tuple[int, ...] = 1
     ):
         """This is the original encoding module used in PVNet, with a few minor tweaks.
 
@@ -39,28 +40,37 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
             spatial_kernel_size: The spatial size of the kernel used in the conv3d layers.
             temporal_kernel_size: The temporal size of the kernel used in the conv3d layers.
             padding: The padding used in the conv3d layers. If an int, the same padding
-                is used in all dimensions
+                is used in all dimensions. The dimensions are (time, )
+            stride: The stride used in conv3d layers. If an int, the same stride is used
+                in all dimensions
         """
 
         super().__init__(sequence_length, image_size_pixels, out_features)
 
         if isinstance(padding, int):
             padding = (padding, padding, padding)
+
+        if isinstance(stride, int):
+            stride = (stride, stride, stride)
         
         # Check that the output shape of the convolutional layers will be at least 1x1
-        cnn_spatial_output_size = (
-            image_size_pixels
-            - ((spatial_kernel_size - 2 * padding[1]) - 1) * number_of_conv3d_layers
-        )
-        cnn_sequence_length = (
-            sequence_length
-            - ((temporal_kernel_size - 2 * padding[0]) - 1) * number_of_conv3d_layers
-        )
+        cnn_spatial_output_size = image_size_pixels
+
+        for _ in range(number_of_conv3d_layers):
+            cnn_spatial_output_size = (
+                cnn_spatial_output_size - spatial_kernel_size + 2 * padding[1]
+                ) // stride[1] + 1
+            
         if not (cnn_spatial_output_size >= 1):
             raise ValueError(
                 f"cannot use this many conv3d layers ({number_of_conv3d_layers}) with this input "
                 f"spatial size ({image_size_pixels})"
             )
+
+        cnn_sequence_length = (
+            sequence_length
+            - ((temporal_kernel_size - 2 * padding[0]) - 1) * number_of_conv3d_layers
+        )
 
         conv_layers = []
 
@@ -70,16 +80,18 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
                 out_channels=conv3d_channels,
                 kernel_size=(temporal_kernel_size, spatial_kernel_size, spatial_kernel_size),
                 padding=padding,
+                stride=stride,
             ),
             nn.ELU(),
         ]
-        for i in range(0, number_of_conv3d_layers - 1):
+        for _ in range(0, number_of_conv3d_layers - 1):
             conv_layers += [
                 nn.Conv3d(
                     in_channels=conv3d_channels,
                     out_channels=conv3d_channels,
                     kernel_size=(temporal_kernel_size, spatial_kernel_size, spatial_kernel_size),
                     padding=padding,
+                    stride=stride,
                 ),
                 nn.ELU(),
             ]
