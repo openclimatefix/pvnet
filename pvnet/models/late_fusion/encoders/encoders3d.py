@@ -40,7 +40,7 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
             spatial_kernel_size: The spatial size of the kernel used in the conv3d layers.
             temporal_kernel_size: The temporal size of the kernel used in the conv3d layers.
             padding: The padding used in the conv3d layers. If an int, the same padding
-                is used in all dimensions. The dimensions are (time, )
+                is used in all dimensions. The dimensions are (time, space, space)
             stride: The stride used in conv3d layers. If an int, the same stride is used
                 in all dimensions
         """
