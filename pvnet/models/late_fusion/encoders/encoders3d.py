@@ -24,7 +24,7 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
         fc_features: int = 128,
         spatial_kernel_size: int = 3,
         temporal_kernel_size: int = 3,
-        padding: int | tuple[int] = (1, 0, 0),
+        padding: int | tuple[int, ...] = (1, 0, 0),
     ):
         """This is the original encoding module used in PVNet, with a few minor tweaks.
 
@@ -42,7 +42,7 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
                 is used in all dimensions
         """
 
-        super().__init__(sequence_length, image_size_pixels, out_features)
+        super().__init__(sequence_length, image_size_pixels, in_channels, out_features)
 
         if isinstance(padding, int):
             padding = (padding, padding, padding)
@@ -137,7 +137,7 @@ class ResConv3DNet(AbstractNWPSatelliteEncoder):
             batch_norm: Whether to include batch normalisation.
             dropout_frac: Probability of an element to be zeroed in the residual pathways.
         """
-        super().__init__(sequence_length, image_size_pixels, out_features)
+        super().__init__(sequence_length, image_size_pixels, in_channels, out_features)
 
         model = [
             nn.Conv3d(
