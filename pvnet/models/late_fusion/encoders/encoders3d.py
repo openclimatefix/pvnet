@@ -45,7 +45,7 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
                 in all dimensions
         """
 
-        super().__init__(sequence_length, image_size_pixels, out_features)
+        super().__init__(sequence_length, image_size_pixels, in_channels, out_features)
 
         if isinstance(padding, int):
             padding = (padding, padding, padding)
@@ -149,7 +149,7 @@ class ResConv3DNet(AbstractNWPSatelliteEncoder):
             batch_norm: Whether to include batch normalisation.
             dropout_frac: Probability of an element to be zeroed in the residual pathways.
         """
-        super().__init__(sequence_length, image_size_pixels, out_features)
+        super().__init__(sequence_length, image_size_pixels, in_channels, out_features)
 
         model = [
             nn.Conv3d(
