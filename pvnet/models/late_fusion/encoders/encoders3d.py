@@ -25,7 +25,7 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
         spatial_kernel_size: int = 3,
         temporal_kernel_size: int = 3,
         padding: int | tuple[int, ...] = (1, 0, 0),
-        stride: int | tuple[int, ...] = 1
+        stride: int | tuple[int, ...] = 1,
     ):
         """This is the original encoding module used in PVNet, with a few minor tweaks.
 

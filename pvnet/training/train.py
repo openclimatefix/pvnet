@@ -26,7 +26,6 @@ from pvnet.utils import (
 log = logging.getLogger(__name__)
 
 
-
 def resolve_monitor_loss(output_quantiles: list | None) -> str:
     """Return the desired metric to monitor based on whether quantile regression is being used.
 

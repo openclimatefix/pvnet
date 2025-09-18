@@ -1,12 +1,12 @@
 import os
 
 import dask.array
+import hydra
 import pytest
 import pandas as pd
 import numpy as np
 import xarray as xr
 import torch
-import hydra
 
 from ocf_data_sampler.torch_datasets.sample.site import SiteSample
 from ocf_data_sampler.torch_datasets.datasets import SitesDataset
@@ -363,6 +363,7 @@ def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
         sat_history_minutes=30,
         nwp_history_minutes={"ukv": 120, "ecmwf": 120},
         nwp_forecast_minutes={"ukv": 480, "ecmwf": 480},
+        nwp_interval_minutes={"ukv": 60, "ecmwf": 60},
         min_sat_delay_minutes=0,
         **model_minutes_kwargs,
     )

@@ -45,8 +45,8 @@ def main(project: str, runs: list[str], run_names: list[str]) -> None:
         run = api.run(f"openclimatefix/{project}/{run}")
 
         df = run.history(samples=run.lastHistoryStep + 1)
-        # Get the columns that are in the format 'MAE_horizon/step_<number>/val`
-        mae_cols = [col for col in df.columns if "MAE_horizon/step_" in col and "val" in col]
+        # Get the columns that are in the format 'val_step_MAE/step_<number>'
+        mae_cols = [col for col in df.columns if "val_step_MAE/step_" in col]
         # Sort them
         mae_cols.sort()
         df = df[mae_cols]
