@@ -16,7 +16,6 @@ class AbstractNWPSatelliteEncoder(nn.Module, metaclass=ABCMeta):
         self,
         sequence_length: int,
         image_size_pixels: int,
-        in_channels: int,
         out_features: int,
     ):
         """Abstract class for NWP/satellite encoder.
