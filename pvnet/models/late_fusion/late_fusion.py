@@ -179,11 +179,11 @@ class LateFusionModel(BaseModel):
 
             # For each NWP encoder the forecast and history minutes must be set
             assert set(nwp_encoders_dict.keys()) == set(nwp_forecast_minutes.keys()), (
-                f"NWP encoder keys {set(nwp_encoders_dict.keys())} do not match "
+                f"nwp encoder keys {set(nwp_encoders_dict.keys())} do not match "
                 f"nwp_forecast_minutes keys {set(nwp_forecast_minutes.keys())}"
             )
             assert set(nwp_encoders_dict.keys()) == set(nwp_history_minutes.keys()), (
-                f"NWP encoder keys {set(nwp_encoders_dict.keys())} do not match "
+                f"nwp encoder keys {set(nwp_encoders_dict.keys())} do not match "
                 f"nwp_history_minutes keys {set(nwp_history_minutes.keys())}"
             )
 
