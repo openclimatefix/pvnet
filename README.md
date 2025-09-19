@@ -143,6 +143,8 @@ satellite:
 
 `ocf-data-sampler` is currently set up to use 11 channels from the satellite data (the 12th, HRV, is not used).
 
+⚠️ NB: Our publicly accessible satellite data is currently saved with a blosc2 compressor, which is not supported by the tensorstore backend PVNet relies on now. We are in the process of updating this; for now, the paths above cannot be used with this codebase.
+
 ### Training PVNet
 
 How PVNet is run is determined by the configuration files. The example configs in `PVNet/configs.example` work with **streamed_samples** using `datamodule/streamed_samples.yaml`.
