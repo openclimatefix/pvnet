@@ -152,13 +152,13 @@ class PVNetLightningModule(pl.LightningModule):
     def _store_val_predictions(self, batch: TensorBatch, y_hat: torch.Tensor) -> None:
         """Internally store the validation predictions"""
         
-        taregt_key = self.model._target_key
+        target_key = self.model._target_key
 
-        y = batch[taregt_key][:, -self.model.forecast_len :].cpu().numpy()
+        y = batch[target_key][:, -self.model.forecast_len :].cpu().numpy()
         y_hat = y_hat.cpu().numpy() 
-        ids = batch[f"{taregt_key}_id"].cpu().numpy()
+        ids = batch[f"{target_key}_id"].cpu().numpy()
         init_times_utc = pd.to_datetime(
-            batch[f"{taregt_key}_time_utc"][:, self.model.history_len+1]
+            batch[f"{target_key}_time_utc"][:, self.model.history_len+1]
             .cpu().numpy().astype("datetime64[ns]")
         )
 
