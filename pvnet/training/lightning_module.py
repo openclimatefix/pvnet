@@ -38,6 +38,7 @@ class PVNetLightningModule(pl.LightningModule):
 
         self.model = model
         self._optimizer = optimizer
+        self.save_all_validation_results = save_all_validation_results
 
         # Model must have lr to allow tuning
         # This setting is only used when lr is tuned with callback
@@ -312,7 +313,7 @@ class PVNetLightningModule(pl.LightningModule):
             self.log_dict(extreme_error_metrics, on_step=False, on_epoch=True)
 
             # Optionally save all validation results - these are overridden each epoch
-            if self.hparams.save_all_validation_results:
+            if self.save_all_validation_results:
                 # Add attributes
                 ds_val_results.attrs["epoch"] = self.current_epoch
 
