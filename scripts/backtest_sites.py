@@ -10,14 +10,16 @@ Use:
   - number of workers to use;
   - The PVNet model checkpoint (either local or HuggingFace repo details);
   - the time range over which predictions are made;
-  - the output directory where the results are stored; 
-  - time window to make forecasts for
+  - the output directory where the results are stored;
 
-  Outputs netCDF files with the predictions for each t0 in seperate files, each file has forecasts for all sites.
+  Outputs netCDF files with the predictions for each t0 in seperate files,
+  each file has forecasts for all sites.
   Time resolution of the forecast t0s is the same as the time resolution of the generation data. 
 
-  Warning: this script currently assumes that if you are running the backtest for multiple sites (generation data being used has multiple sites)
-  that they will all have the same t0s available in generation data, if they have non overlapping periods may be best to run this multiple times with
+  Warning: this script currently assumes that if you are running the backtest for multiple sites
+  (generation data being used has multiple sites).
+  that they will all have the same t0s available in generation data,
+  if they have non overlapping periods may be best to run this multiple times with
   different generation files for each site
 
 ```
@@ -26,6 +28,7 @@ python scripts/backtest_sites.py
 
 """
 import os
+
 import hydra
 import numpy as np
 import pandas as pd
@@ -42,6 +45,7 @@ from tqdm import tqdm
 
 from pvnet.load_model import get_model_from_checkpoints
 from pvnet.models.base_model import BaseModel as PVNetBaseModel
+
 # ------------------------------------------------------------------
 # USER CONFIGURED VARIABLES TO RUN THE SCRIPT
 
