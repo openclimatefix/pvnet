@@ -154,7 +154,7 @@ class LateFusionModel(BaseModel):
 
         if self.include_sat:
             # Param checks
-            assert sat_history_minutes is not None
+            assert sat_history_minutes is not None, "sat_history_minutes is not present in config"
 
             self.sat_sequence_len = (
                 sat_history_minutes - min_sat_delay_minutes
@@ -174,12 +174,18 @@ class LateFusionModel(BaseModel):
 
         if self.include_nwp:
             # Param checks
-            assert nwp_forecast_minutes is not None
-            assert nwp_history_minutes is not None
+            assert nwp_forecast_minutes is not None, "nwp_forecast_minutes is not present in config"
+            assert nwp_history_minutes is not None, "nwp_history_minutes is not present in config"
 
             # For each NWP encoder the forecast and history minutes must be set
-            assert set(nwp_encoders_dict.keys()) == set(nwp_forecast_minutes.keys())
-            assert set(nwp_encoders_dict.keys()) == set(nwp_history_minutes.keys())
+            assert set(nwp_encoders_dict.keys()) == set(nwp_forecast_minutes.keys()), (
+                f"nwp encoder keys {set(nwp_encoders_dict.keys())} do not match "
+                f"nwp_forecast_minutes keys {set(nwp_forecast_minutes.keys())}"
+            )
+            assert set(nwp_encoders_dict.keys()) == set(nwp_history_minutes.keys()), (
+                f"nwp encoder keys {set(nwp_encoders_dict.keys())} do not match "
+                f"nwp_history_minutes keys {set(nwp_history_minutes.keys())}"
+            )
 
             if nwp_interval_minutes is None:
                 nwp_interval_minutes = dict.fromkeys(nwp_encoders_dict.keys(), 60)
@@ -213,7 +219,7 @@ class LateFusionModel(BaseModel):
                 fusion_input_features += self.nwp_encoders_dict[nwp_source].out_features
 
         if self.include_pv:
-            assert pv_history_minutes is not None
+            assert pv_history_minutes is not None, "pv_history_minutes is not present in config"
 
             self.pv_encoder = pv_encoder(
                 sequence_length=pv_history_minutes // pv_interval_minutes + 1,
