@@ -16,6 +16,10 @@ Use:
   Outputs netCDF files with the predictions for each t0 in seperate files, each file has forecasts for all sites.
   Time resolution of the forecast t0s is the same as the time resolution of the generation data. 
 
+  Warning: this script currently assumes that if you are running the backtest for multiple sites (generation data being used has multiple sites)
+  that they will all have the same t0s available in generation data, if they have non overlapping periods may be best to run this multiple times with
+  different generation files for each site
+
 ```
 python scripts/backtest_sites.py
 ```
@@ -44,7 +48,7 @@ from pvnet.models.base_model import BaseModel as PVNetBaseModel
 num_workers = 2
 
 # Directory path to save results
-output_dir: str = "/home/sukhil/ocf-code/pvnet_new/pvnet_new_results/test_multi_sites_backtest"
+output_dir: str = "example_repo"
 
 # Local directory to load the PVNet checkpoint from. By default this should pull the best performing
 # checkpoint on the val set, set to None if using HF
@@ -52,8 +56,8 @@ model_checkpoint_dir: str | None = None
 
 
 # Location to download exported PVNet model on HF, set to None if using local
-hf_model_id: str | None = "openclimatefix/pvnet_ad_sites"
-hf_revision: str | None = "66e13803532e6ede3a9585faf9257c6be1713ba5"
+hf_model_id: str | None = "openclimatefix/example_repo"
+hf_revision: str | None = "95b1658c2b771e567fb3a0379e9bd600e0b1d209"
 
 # Forecasts will be made for all available init times between these
 start_datetime = "2024-06-05 00:00"
