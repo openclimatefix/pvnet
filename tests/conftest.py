@@ -13,8 +13,8 @@ from ocf_data_sampler.torch_datasets.datasets import SitesDataset
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configuration
 
-from pvnet.data.base_datamodule import collate_fn
-from pvnet.data import  UKRegionalDataModule, SitesDataModule
+from pvnet.datamodule import collate_fn
+from pvnet.datamodule import  UKRegionalDataModule, SitesDataModule
 from pvnet.models import LateFusionModel
 
 

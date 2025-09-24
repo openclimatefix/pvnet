@@ -1,4 +1,4 @@
-from pvnet.data import SitesDataModule
+from pvnet.datamodule import SitesDataModule
 
 
 

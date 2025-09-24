@@ -1,6 +1,6 @@
 import lightning
 
-from pvnet.data import UKRegionalDataModule
+from pvnet.datamodule import UKRegionalDataModule
 from pvnet.optimizers import EmbAdamWReduceLROnPlateau
 from pvnet.training.lightning_module import PVNetLightningModule
 

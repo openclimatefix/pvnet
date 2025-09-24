@@ -6,8 +6,11 @@ import numpy as np
 from lightning.pytorch import LightningDataModule
 from ocf_data_sampler.numpy_sample.collate import stack_np_samples_into_batch
 from ocf_data_sampler.numpy_sample.common_types import NumpySample, TensorBatch
+from ocf_data_sampler.torch_datasets.datasets.pvnet_uk import PVNetUKRegionalDataset
+from ocf_data_sampler.torch_datasets.datasets.site import SitesDataset
 from ocf_data_sampler.torch_datasets.sample.base import batch_to_tensor
 from torch.utils.data import DataLoader, Dataset, Subset
+
 
 
 def collate_fn(samples: list[NumpySample]) -> TensorBatch:
@@ -124,3 +127,17 @@ class BaseDataModule(LightningDataModule):
     def val_dataloader(self) -> DataLoader:
         """Construct val dataloader"""
         return DataLoader(self.val_dataset, shuffle=False, **self._common_dataloader_kwargs)
+
+
+class UKRegionalDataModule(BaseDataModule):
+    """Datamodule for streaming UK regional samples."""
+
+    def _get_dataset(self, start_time: str | None, end_time: str | None) -> PVNetUKRegionalDataset:
+        return PVNetUKRegionalDataset(self.configuration, start_time=start_time, end_time=end_time)
+
+
+class SitesDataModule(BaseDataModule):
+    """Datamodule for streaming site samples."""
+
+    def _get_dataset(self, start_time: str | None, end_time: str | None) -> SitesDataset:
+        return SitesDataset(self.configuration, start_time=start_time, end_time=end_time)
