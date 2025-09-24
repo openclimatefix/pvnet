@@ -14,7 +14,7 @@ from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configuration
 
 from pvnet.data.base_datamodule import collate_fn
-from pvnet.data import  UKRegionalStreamedDataModule, SiteStreamedDataModule
+from pvnet.data import  UKRegionalDataModule, SitesDataModule
 from pvnet.models import LateFusionModel
 
 
@@ -247,8 +247,8 @@ def site_data_config_path(
 
 
 @pytest.fixture(scope="session")
-def uk_streamed_datamodule(uk_data_config_path) -> UKRegionalStreamedDataModule:
-    dm = UKRegionalStreamedDataModule(
+def uk_streamed_datamodule(uk_data_config_path) -> UKRegionalDataModule:
+    dm = UKRegionalDataModule(
         configuration=uk_data_config_path,
         batch_size=2,
         num_workers=0,
@@ -259,8 +259,8 @@ def uk_streamed_datamodule(uk_data_config_path) -> UKRegionalStreamedDataModule:
 
 
 @pytest.fixture(scope="session")
-def site_streamed_datamodule(site_data_config_path) -> SiteStreamedDataModule:
-    dm = SiteStreamedDataModule(
+def site_streamed_datamodule(site_data_config_path) -> SitesDataModule:
+    dm = SitesDataModule(
         configuration=site_data_config_path,
         batch_size=2,
         num_workers=0,

@@ -15,10 +15,8 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import Logger, WandbLogger
 from omegaconf import DictConfig, OmegaConf
 
-from pvnet.data.base_datamodule import BasePresavedDataModule
 from pvnet.utils import (
     DATA_CONFIG_NAME,
-    DATAMODULE_CONFIG_NAME,
     FULL_CONFIG_NAME,
     MODEL_CONFIG_NAME,
 )
@@ -102,27 +100,8 @@ def train(config: DictConfig) -> None:
                 os.makedirs(save_dir, exist_ok=True)
                 OmegaConf.save(config.model, f"{save_dir}/{MODEL_CONFIG_NAME}")
 
-                # If using pre-saved samples we need to extract the data config from the directory
-                # those samples were saved to
-                if isinstance(datamodule, BasePresavedDataModule):
-                    data_config = f"{config.datamodule.sample_dir}/{DATA_CONFIG_NAME}"
-
-                    # We also save the datamodule config used to create the samples to the output 
-                    # directory and to wandb
-                    shutil.copyfile(
-                        f"{config.datamodule.sample_dir}/{DATAMODULE_CONFIG_NAME}", 
-                        f"{save_dir}/{DATAMODULE_CONFIG_NAME}"
-                    )
-                    wandb_logger.experiment.save(
-                        f"{save_dir}/{DATAMODULE_CONFIG_NAME}", 
-                        base_path=save_dir,
-                    )
-                else:
-                    # If we are streaming batches the data config is defined and we don't need to
-                    # save the datamodule config separately
-                    data_config = config.datamodule.configuration
-
                 # Save the data config to the output directory and to wandb
+                data_config = config.datamodule.configuration
                 shutil.copyfile(data_config, f"{save_dir}/{DATA_CONFIG_NAME}")
                 wandb_logger.experiment.save(f"{save_dir}/{DATA_CONFIG_NAME}", base_path=save_dir)
 

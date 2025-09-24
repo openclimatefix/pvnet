@@ -1,29 +1,11 @@
 """ Data module for pytorch lightning """
 
 from ocf_data_sampler.torch_datasets.datasets.site import SitesDataset
-from ocf_data_sampler.torch_datasets.sample.site import SiteSample
-from torch.utils.data import Dataset
-
-from pvnet.data.base_datamodule import (
-    BasePresavedDataModule,
-    BaseStreamedDataModule,
-    PresavedSamplesDataset,
-)
+from pvnet.data.base_datamodule import BaseDataModule
 
 
-class SitePresavedDataModule(BasePresavedDataModule):
-    """Datamodule for loading pre-saved samples."""
-
-    def _get_premade_samples_dataset(self, subdir: str) -> Dataset:
-        return PresavedSamplesDataset(f"{self.sample_dir}/{subdir}", SiteSample)
-
-
-class SiteStreamedDataModule(BaseStreamedDataModule):
+class SitesDataModule(BaseDataModule):
     """Datamodule which streams samples using sampler for ocf-data-sampler."""
 
-    def _get_streamed_samples_dataset(
-        self,
-        start_time: str | None,
-        end_time: str | None
-    ) -> Dataset:
+    def _get_dataset(self, start_time: str | None, end_time: str | None) -> SitesDataset:
         return SitesDataset(self.configuration, start_time=start_time, end_time=end_time)
