@@ -12,7 +12,6 @@ from ocf_data_sampler.torch_datasets.sample.base import batch_to_tensor
 from torch.utils.data import DataLoader, Dataset, Subset
 
 
-
 def collate_fn(samples: list[NumpySample]) -> TensorBatch:
     """Convert a list of NumpySample samples to a tensor batch"""
     return batch_to_tensor(stack_np_samples_into_batch(samples))
