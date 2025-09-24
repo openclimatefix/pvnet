@@ -73,6 +73,8 @@ def get_model_from_checkpoints(
         else:
             raise FileNotFoundError(f"File {data_config} does not exist")
 
+        # TODO: This should be removed in a future release since no new models will be trained on 
+        # presaved samples
         # Check for datamodule config
         # This only exists if the model was trained with presaved samples
         datamodule_config = f"{path}/{DATAMODULE_CONFIG_NAME}"
