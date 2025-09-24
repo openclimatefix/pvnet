@@ -8,19 +8,19 @@ Use:
 - The following variables are hard coded near the top of the script and should be changed prior to
   use:
   - number of workers to use;
-  - The PVNet model checkpoint (either local or HuggingFace repo details);
+  - the PVNet model checkpoint (either local or HuggingFace repo details);
   - the time range over which predictions are made;
   - the output directory where the results are stored;
 
-  Outputs netCDF files with the predictions for each t0 in seperate files,
+- Outputs netCDF files with the predictions for each t0 in seperate files,
   each file has forecasts for all sites.
   Time resolution of the forecast t0s is the same as the time resolution of the generation data. 
 
-  Warning: this script currently assumes that if you are running the backtest for multiple sites
+- WARNING: this script currently assumes that if you are running the backtest for multiple sites
   (generation data being used has multiple sites).
   that they will all have the same t0s available in generation data,
   if they have non overlapping periods may be best to run this multiple times with
-  different generation files for each site
+  different generation files for each site, otherwise silent errors could occur. 
 
 ```
 python scripts/backtest_sites.py
@@ -250,8 +250,8 @@ def main(config: DictConfig):
         model.to(device)
     elif hf_model_id:
         model = PVNetBaseModel.from_pretrained(
-        model_id=hf_model_id,
-        revision=hf_revision,).to(device).eval()
+            model_id=hf_model_id,
+            revision=hf_revision).to(device).eval()
     else:
         raise ValueError("Provide a model checkpoint or a HuggingFace model")
 
