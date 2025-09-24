@@ -1,6 +1,7 @@
 """ Data module for pytorch lightning """
 
 from ocf_data_sampler.torch_datasets.datasets.site import SitesDataset
+
 from pvnet.data.base_datamodule import BaseDataModule
 
 
