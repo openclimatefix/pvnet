@@ -7,28 +7,27 @@ Use:
   that the data config is set up appropriate for the model being run in this script
 - The following variables are hard coded near the top of the script and should be changed prior to
   use:
-  The PVNet model checkpoint (either local or HuggingFace repo details);
-  the time range over which predictions are made;
-  the output directory where the results are stored; time parameters (window and frequency)
+  - number of workers to use;
+  - the PVNet model checkpoint (either local or HuggingFace repo details);
+  - the time range over which predictions are made;
+  - the output directory where the results are stored;
 
-  Outputs netCDF files with the predictions for each t0 for all sites in sepearate files.
+- Outputs netCDF files with the predictions for each t0 in seperate files,
+  each file has forecasts for all sites.
+  Time resolution of the forecast t0s is the same as the time resolution of the generation data. 
+
+- WARNING: this script currently assumes that if you are running the backtest for multiple sites
+  (generation data being used has multiple sites).
+  that they will all have the same t0s available in generation data,
+  if they have non overlapping periods may be best to run this multiple times with
+  different generation files for each site, otherwise silent errors could occur. 
 
 ```
 python scripts/backtest_sites.py
 ```
 
 """
-try:
-    import torch.multiprocessing as mp
-
-    mp.set_start_method("spawn", force=True)
-    mp.set_sharing_strategy("file_system")
-except RuntimeError:
-    pass
-
-import logging
 import os
-import sys
 
 import hydra
 import numpy as np
@@ -46,31 +45,27 @@ from tqdm import tqdm
 
 from pvnet.load_model import get_model_from_checkpoints
 from pvnet.models.base_model import BaseModel as PVNetBaseModel
-from pvnet.models.late_fusion.late_fusion import Model
 
 # ------------------------------------------------------------------
 # USER CONFIGURED VARIABLES TO RUN THE SCRIPT
 
+num_workers = 2
+
 # Directory path to save results
-output_dir = "example/path"
+output_dir: str = "example_repo"
 
 # Local directory to load the PVNet checkpoint from. By default this should pull the best performing
-# checkpoint on the val set, either model_checkpoint_dir or hf values need to be set
-model_checkpoint_dir = "example/path"
+# checkpoint on the val set, set to None if using HF
+model_checkpoint_dir: str | None = None
 
-hf_revision = "example"
-hf_token = "example"
-hf_model_id = "example"
+
+# Location to download exported PVNet model on HF, set to None if using local
+hf_model_id: str | None = "openclimatefix/example_repo"
+hf_revision: str | None = "95b1658c2b771e567fb3a0379e9bd600e0b1d209"
 
 # Forecasts will be made for all available init times between these
-start_datetime = "2024-06-01 00:00"
-end_datetime = "2024-09-01 00:00"
-
-# ------------------------------------------------------------------
-# SET UP LOGGING
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+start_datetime = "2024-06-05 00:00"
+end_datetime = "2024-06-05 03:00"
 
 # ------------------------------------------------------------------
 # DERIVED VARIABLES
@@ -81,42 +76,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ------------------------------------------------------------------
 # GLOBAL VARIABLES
 
-# The frequency of the pv site data
-FREQ_MINS = 15
-
 # When sun as elevation below this, the forecast is set to zero
 MIN_DAY_ELEVATION = 0
 
 # ------------------------------------------------------------------
 # FUNCTIONS
-
-def load_model_from_hf(model_id: str,
-                       revision: str,
-                       token: str) -> Model:
-    """Loads model and data config from HuggingFace
-
-    Adapts and saves data config to be used by datasampler.
-
-    Args:
-        model_id: model repo on HF (eg 'openclimatefix/model')
-        revision: revision tag for model repo
-        token: access token. Needed for access to private repos
-
-    Returns:
-        model on device and path to adapted data config
-    """
-
-    model = PVNetBaseModel.from_pretrained(
-        model_id=model_id,
-        revision=revision,
-        token=token,
-    )
-
-    model.eval()
-    model.to(device)
-
-    return model
-
 
 def preds_to_dataarray(preds, model, valid_times, site_ids):
     """Put numpy array of predictions into a dataarray"""
@@ -241,11 +205,17 @@ def main(config: DictConfig):
     dataloader_kwargs = dict(
         shuffle=False,
         batch_size=None,
-        num_workers=config.datamodule.num_workers,
+        num_workers=num_workers,
+        prefetch_factor=2 if num_workers>0 else None,
+        multiprocessing_context="spawn" if num_workers>0 else None,
         pin_memory=False,
         drop_last=False,
-        prefetch_factor=config.datamodule.prefetch_factor,
         persistent_workers=False,
+        sampler=None,
+        batch_sampler=None,
+        collate_fn=None,
+        timeout=0,
+        worker_init_fn=None,
     )
 
     # Set up output dir
@@ -279,7 +249,9 @@ def main(config: DictConfig):
         model.eval()
         model.to(device)
     elif hf_model_id:
-        model = load_model_from_hf(hf_model_id, hf_revision, hf_token)
+        model = PVNetBaseModel.from_pretrained(
+            model_id=hf_model_id,
+            revision=hf_revision).to(device).eval()
     else:
         raise ValueError("Provide a model checkpoint or a HuggingFace model")
 
