@@ -18,7 +18,7 @@ def collate_fn(samples: list[NumpySample]) -> TensorBatch:
 
 
 class BaseDataModule(LightningDataModule):
-    """Base Datamodule which streams samples using a sampler for ocf-data-sampler."""
+    """Base Datamodule which streams samples using a sampler from ocf-data-sampler."""
 
     def __init__(
         self,
