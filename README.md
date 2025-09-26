@@ -113,12 +113,6 @@ pip install -e <PATH-TO-ocf-data-sampler-REPO>
 If you install the local version of `ocf-data-sampler` that is more recent than the version 
 specified in `PVNet` it is not guarenteed to function properly with this library.
 
-## Streaming samples (no pre-save)
-
-PVNet now trains and validates directly from **streamed_samples** (i.e. no pre-saving to disk).
-
-Make sure you have copied example configs (as already stated above):
-cp -r configs.example configs
 
 ### Set up and config example for streaming
 
