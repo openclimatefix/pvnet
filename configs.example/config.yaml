@@ -5,7 +5,7 @@ defaults:
   - _self_
   - trainer: default.yaml
   - model: late_fusion.yaml
-  - datamodule: premade_samples.yaml
+  - datamodule: streamed_samples.yaml
   - callbacks: default.yaml # set this to null if you don't want to use callbacks
   - logger: wandb.yaml # set logger here or use command line (e.g. `python run.py logger=wandb`)
   - experiment: null
