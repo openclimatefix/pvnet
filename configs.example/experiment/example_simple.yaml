@@ -6,7 +6,7 @@
 defaults:
   - override /trainer: default.yaml # choose trainer from 'configs/trainer/'
   - override /model: multimodal.yaml
-  - override /datamodule: premade_samples.yaml
+  - override /datamodule: streamed_samples.yaml
   - override /callbacks: default.yaml
   - override /logger: wandb.yaml
   - override /hydra: default.yaml
