@@ -65,7 +65,7 @@ class AbstractOptimizer(ABC):
     """
 
     @abstractmethod
-    def __call__(self):
+    def __call__(self, model: Module):
         """Abstract call"""
         pass
 
@@ -137,11 +137,15 @@ class EmbAdamWReduceLROnPlateau(AbstractOptimizer):
             patience=self.patience,
             threshold=self.threshold,
         )
-        sch = {
-            "scheduler": sch,
-            "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
+        return {
+            "optimizer": opt,
+            "lr_scheduler": {
+                "scheduler": sch,
+                "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
+                "interval": "epoch",
+                "frequency": 1,
+            },
         }
-        return [opt], [sch]
 
 
 class AdamWReduceLROnPlateau(AbstractOptimizer):
@@ -157,7 +161,7 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
         **opt_kwargs,
     ):
         """AdamW optimizer and reduce on plateau scheduler"""
-        self._lr = lr
+        self.lr = lr
         self.patience = patience
         self.factor = factor
         self.threshold = threshold
@@ -169,7 +173,7 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
 
         group_args = []
 
-        for key in self._lr.keys():
+        for key in self.lr.keys():
             if key == "default":
                 continue
 
@@ -178,43 +182,50 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
                 if param_name.startswith(key):
                     submodule_params += [remaining_params.pop(param_name)]
 
-            group_args += [{"params": submodule_params, "lr": self._lr[key]}]
+            group_args += [{"params": submodule_params, "lr": self.lr[key]}]
 
         remaining_params = [p for k, p in remaining_params.items()]
         group_args += [{"params": remaining_params}]
 
         opt = torch.optim.AdamW(
             group_args, 
-            lr=self._lr["default"] if model.lr is None else model.lr, 
+            lr=self.lr["default"], 
             **self.opt_kwargs,
         )
-        sch = {
-            "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                opt,
-                factor=self.factor,
-                patience=self.patience,
-                threshold=self.threshold,
-            ),
-            "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
+        sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            opt,
+            factor=self.factor,
+            patience=self.patience,
+            threshold=self.threshold,
+        )
+        return {
+            "optimizer": opt,
+            "lr_scheduler": {
+                "scheduler": sch,
+                "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
+                "interval": "epoch",
+                "frequency": 1,
+            },
         }
-
-        return [opt], [sch]
 
     def __call__(self, model):
         """Return optimizer"""
-        if not isinstance(self._lr, float):
+        if not isinstance(self.lr, float):
             return self._call_multi(model)
         else:
-            default_lr = self._lr if model.lr is None else model.lr
-            opt = torch.optim.AdamW(model.parameters(), lr=default_lr, **self.opt_kwargs)
+            opt = torch.optim.AdamW(model.parameters(), lr=self.lr, **self.opt_kwargs)
             sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 opt,
                 factor=self.factor,
                 patience=self.patience,
                 threshold=self.threshold,
             )
-            sch = {
-                "scheduler": sch,
-                "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
+            return {
+                "optimizer": opt,
+                "lr_scheduler": {
+                    "scheduler": sch,
+                    "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
+                    "interval": "epoch",
+                    "frequency": 1,
+                },
             }
-            return [opt], [sch]
