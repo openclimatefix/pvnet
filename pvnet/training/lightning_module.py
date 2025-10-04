@@ -39,6 +39,7 @@ class PVNetLightningModule(pl.LightningModule):
         self.model = model
         self._optimizer = optimizer
         self.save_all_validation_results = save_all_validation_results
+        self.save_hyperparameters(ignore=["model", "optimizer"])
 
         # Model must have lr to allow tuning
         # This setting is only used when lr is tuned with callback
@@ -109,7 +110,8 @@ class PVNetLightningModule(pl.LightningModule):
         losses = self._calculate_common_losses(y, y_hat)
         losses = {f"{k}/train": v for k, v in losses.items()}
 
-        self.log_dict(losses, on_step=True, on_epoch=True)
+        bs = y.size(0)
+        self.log_dict(losses, on_step=True, on_epoch=True, sync_dist=True, batch_size=bs)
 
         if self.model.use_quantile_regression:
             opt_target = losses["quantile_loss/train"]
@@ -276,8 +278,9 @@ class PVNetLightningModule(pl.LightningModule):
                 }
             )
 
-        # Log the metrics
-        self.log_dict(losses, on_step=False, on_epoch=True)
+        # Log the metrics (DDP/epoch-correct for scheduler monitors)
+        bs = y.size(0)
+        self.log_dict(losses, on_step=False, on_epoch=True, sync_dist=True, batch_size=bs)
 
     def on_validation_epoch_end(self) -> None:
         """Run on epoch end"""
@@ -322,7 +325,7 @@ class PVNetLightningModule(pl.LightningModule):
                 filepath = f"{wandb_log_dir}/validation_results.netcdf"
                 ds_val_results.to_netcdf(filepath)
                 
-                # Uplodad to wandb
+                # Uplodad to wandb
                 self.logger.experiment.save(filepath, base_path=wandb_log_dir, policy="now")
             
             # Create the horizon accuracy curve
