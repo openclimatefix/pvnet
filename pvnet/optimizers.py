@@ -129,8 +129,8 @@ class EmbAdamWReduceLROnPlateau(AbstractOptimizer):
             {"params": decay, "weight_decay": self.weight_decay},
             {"params": no_decay, "weight_decay": 0.0},
         ]
+        monitor = "quantile_loss/val" if model.use_quantile_regression else "MAE/val"
         opt = torch.optim.AdamW(optim_groups, lr=self.lr, **self.opt_kwargs)
-
         sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
             opt,
             factor=self.factor,
@@ -139,12 +139,7 @@ class EmbAdamWReduceLROnPlateau(AbstractOptimizer):
         )
         return {
             "optimizer": opt,
-            "lr_scheduler": {
-                "scheduler": sch,
-                "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
-                "interval": "epoch",
-                "frequency": 1,
-            },
+            "lr_scheduler": {"scheduler": sch, "monitor": monitor},
         }
 
 
@@ -186,12 +181,8 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
 
         remaining_params = [p for k, p in remaining_params.items()]
         group_args += [{"params": remaining_params}]
-
-        opt = torch.optim.AdamW(
-            group_args, 
-            lr=self.lr["default"], 
-            **self.opt_kwargs,
-        )
+        monitor = "quantile_loss/val" if model.use_quantile_regression else "MAE/val"
+        opt = torch.optim.AdamW(group_args, lr=self.lr["default"], **self.opt_kwargs)
         sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
             opt,
             factor=self.factor,
@@ -200,19 +191,16 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
         )
         return {
             "optimizer": opt,
-            "lr_scheduler": {
-                "scheduler": sch,
-                "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
-                "interval": "epoch",
-                "frequency": 1,
-            },
+            "lr_scheduler": {"scheduler": sch, "monitor": monitor},
         }
+
 
     def __call__(self, model):
         """Return optimizer"""
         if not isinstance(self.lr, float):
             return self._call_multi(model)
         else:
+            monitor = "quantile_loss/val" if model.use_quantile_regression else "MAE/val"
             opt = torch.optim.AdamW(model.parameters(), lr=self.lr, **self.opt_kwargs)
             sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 opt,
@@ -222,10 +210,5 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
             )
             return {
                 "optimizer": opt,
-                "lr_scheduler": {
-                    "scheduler": sch,
-                    "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
-                    "interval": "epoch",
-                    "frequency": 1,
-                },
+                "lr_scheduler": {"scheduler": sch, "monitor": monitor},
             }
