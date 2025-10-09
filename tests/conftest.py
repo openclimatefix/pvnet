@@ -8,6 +8,8 @@ import numpy as np
 import xarray as xr
 import torch
 
+from omegaconf import OmegaConf
+
 from ocf_data_sampler.torch_datasets.sample.site import SiteSample
 from ocf_data_sampler.torch_datasets.datasets import SitesDataset
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
@@ -16,7 +18,6 @@ from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configura
 from pvnet.datamodule import collate_fn
 from pvnet.datamodule import  UKRegionalDataModule, SitesDataModule
 from pvnet.models import LateFusionModel
-
 
 
 
@@ -421,3 +422,10 @@ def late_fusion_model_site_history(late_fusion_model_kwargs_site_history) -> Lat
 @pytest.fixture()
 def late_fusion_quantile_model(late_fusion_model_kwargs) -> LateFusionModel:
     return LateFusionModel(output_quantiles=[0.1, 0.5, 0.9], **late_fusion_model_kwargs)
+
+
+@pytest.fixture
+def trainer_cfg():
+    def _make(trainer_dict):
+        return OmegaConf.create({"trainer": trainer_dict})
+    return _make

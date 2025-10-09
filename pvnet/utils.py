@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import rich.syntax
 import rich.tree
 from lightning.pytorch.utilities import rank_zero_only
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, ListConfig, OmegaConf
 
 if TYPE_CHECKING:
     from pvnet.models.base_model import BaseModel
@@ -155,3 +155,20 @@ def validate_batch_against_config(
             )
 
     logger.info("Batch shape validation successful!")
+
+
+def validate_gpu_config(config: DictConfig) -> None:
+    """Abort if multi-GPU or multi-node training is requested as not supported."""
+    tr = config.get("trainer", {})
+
+    dev = tr.get("devices")
+    if (isinstance(dev, int) and dev > 1) or \
+       (isinstance(dev, (list, ListConfig)) and len(dev) > 1):
+        raise ValueError("Parallel training not supported. Use `trainer.devices: 1`.")
+
+    strat = str(tr.get("strategy", "")).lower()
+    if strat in {"ddp", "ddp_spawn", "ddp_fork", "dp", "deepspeed", "fsdp"}:
+        raise ValueError(f"Unsupported strategy '{strat}'. Remove or set to null.")
+
+    if tr.get("num_nodes", 1) != 1:
+        raise ValueError("Multi-node training not supported (set num_nodes=1).")
