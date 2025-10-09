@@ -1,12 +1,12 @@
 """Utils"""
 import logging
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import rich.syntax
 import rich.tree
 from lightning.pytorch.utilities import rank_zero_only
 from omegaconf import DictConfig, OmegaConf
-from collections.abc import Sequence
 
 if TYPE_CHECKING:
     from pvnet.models.base_model import BaseModel
