@@ -48,9 +48,3 @@ def test_validate_gpu_config_distributed_strategy_raises(trainer_cfg, strategy):
     """Reject distributed strategies not supported by PVNet."""
     with pytest.raises(ValueError, match="Unsupported strategy"):
         validate_gpu_config(trainer_cfg({"strategy": strategy}))
-
-
-def test_validate_gpu_config_multinode_raises(trainer_cfg):
-    """Reject multi-node training."""
-    with pytest.raises(ValueError, match="Multi-node"):
-        validate_gpu_config(trainer_cfg({"num_nodes": 2}))

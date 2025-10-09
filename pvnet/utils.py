@@ -164,19 +164,15 @@ def _is_multi_device_sequence(x) -> bool:
 
 
 def validate_gpu_config(config: DictConfig) -> None:
-    """Abort if multi-GPU, distributed, or multi-node training requested."""
+    """Abort if multi-GPU or distributed training requested."""
     tr = config.get("trainer", {})
 
-    # Devices: allow single device and block multiples
+    # Allow single device and block multiples
     dev = tr.get("devices")
     if (isinstance(dev, int) and dev > 1) or _is_multi_device_sequence(dev):
         raise ValueError("Parallel training not supported. Use `trainer.devices: 1`.")
 
-    # Distributed strategies: not supported
+    # Distributed strategies not supported
     strat = str(tr.get("strategy", "")).lower()
     if strat in _UNSUPPORTED_STRATEGIES:
         raise ValueError(f"Unsupported strategy '{strat}'. Remove or set to null.")
-
-    # Multi-node: not supported
-    if tr.get("num_nodes", 1) != 1:
-        raise ValueError("Multi-node training not supported (set num_nodes=1).")
