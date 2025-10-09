@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 import rich.syntax
 import rich.tree
 from lightning.pytorch.utilities import rank_zero_only
-from omegaconf import DictConfig, ListConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf
+from collections.abc import Sequence
 
 if TYPE_CHECKING:
     from pvnet.models.base_model import BaseModel
@@ -20,6 +21,7 @@ DATAMODULE_CONFIG_NAME = "datamodule_config.yaml"
 FULL_CONFIG_NAME =  "full_experiment_config.yaml"
 MODEL_CARD_NAME = "README.md"
 
+_UNSUPPORTED_STRATEGIES = {"ddp", "ddp_spawn", "ddp_fork", "dp", "deepspeed", "fsdp"}
 
 
 def run_config_utilities(config: DictConfig) -> None:
@@ -157,18 +159,24 @@ def validate_batch_against_config(
     logger.info("Batch shape validation successful!")
 
 
+def _is_multi_device_sequence(x) -> bool:
+    return isinstance(x, Sequence) and not isinstance(x, (str, bytes)) and len(x) > 1
+
+
 def validate_gpu_config(config: DictConfig) -> None:
-    """Abort if multi-GPU or multi-node training is requested as not supported."""
+    """Abort if multi-GPU, distributed, or multi-node training requested."""
     tr = config.get("trainer", {})
 
+    # Devices: allow single device and block multiples
     dev = tr.get("devices")
-    if (isinstance(dev, int) and dev > 1) or \
-       (isinstance(dev, (list, ListConfig)) and len(dev) > 1):
+    if (isinstance(dev, int) and dev > 1) or _is_multi_device_sequence(dev):
         raise ValueError("Parallel training not supported. Use `trainer.devices: 1`.")
 
+    # Distributed strategies: not supported
     strat = str(tr.get("strategy", "")).lower()
-    if strat in {"ddp", "ddp_spawn", "ddp_fork", "dp", "deepspeed", "fsdp"}:
+    if strat in _UNSUPPORTED_STRATEGIES:
         raise ValueError(f"Unsupported strategy '{strat}'. Remove or set to null.")
 
+    # Multi-node: not supported
     if tr.get("num_nodes", 1) != 1:
         raise ValueError("Multi-node training not supported (set num_nodes=1).")
