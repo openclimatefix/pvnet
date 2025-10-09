@@ -1,6 +1,5 @@
 """Utils"""
 import logging
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import rich.syntax
@@ -20,8 +19,6 @@ DATA_CONFIG_NAME = "data_config.yaml"
 DATAMODULE_CONFIG_NAME = "datamodule_config.yaml"
 FULL_CONFIG_NAME =  "full_experiment_config.yaml"
 MODEL_CARD_NAME = "README.md"
-
-_UNSUPPORTED_STRATEGIES = {"ddp", "ddp_spawn", "ddp_fork", "dp", "deepspeed", "fsdp"}
 
 
 def run_config_utilities(config: DictConfig) -> None:
@@ -159,20 +156,14 @@ def validate_batch_against_config(
     logger.info("Batch shape validation successful!")
 
 
-def _is_multi_device_sequence(x) -> bool:
-    return isinstance(x, Sequence) and not isinstance(x, (str, bytes)) and len(x) > 1
-
-
 def validate_gpu_config(config: DictConfig) -> None:
-    """Abort if multi-GPU or distributed training requested."""
+    """Abort if multiple GPUs requested by mistake i.e. `devices: 2` instead of `[2]`."""
     tr = config.get("trainer", {})
-
-    # Allow single device and block multiples
     dev = tr.get("devices")
-    if (isinstance(dev, int) and dev > 1) or _is_multi_device_sequence(dev):
-        raise ValueError("Parallel training not supported. Use `trainer.devices: 1`.")
 
-    # Distributed strategies not supported
-    strat = str(tr.get("strategy", "")).lower()
-    if strat in _UNSUPPORTED_STRATEGIES:
-        raise ValueError(f"Unsupported strategy '{strat}'. Remove or set to null.")
+    if isinstance(dev, int) and dev > 1:
+        raise ValueError(
+            f"Detected `devices: {dev}` — this requests {dev} GPUs. "
+            "If you meant a specific GPU (e.g. GPU 2), use `devices: [2]`. "
+            "Parallel training not supported."
+        )
