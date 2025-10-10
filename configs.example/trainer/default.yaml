@@ -1,6 +1,6 @@
 _target_: lightning.Trainer
 
-# set `1` to train on GPU, `0` to train on CPU only
+# set `gpu` to train on GPU, `cpu` to train on CPU only
 accelerator: auto
 devices: auto
 
