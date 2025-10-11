@@ -444,7 +444,7 @@ def wandb_offline_env(monkeypatch, session_tmp_path):
 
 
 @pytest.fixture()
-def trainer_cfg():
+def trainer_cfg_cpu():
     """Tiny CPU-only Trainer config."""
     return dict(
         _target_="lightning.pytorch.Trainer",

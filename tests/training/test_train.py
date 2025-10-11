@@ -6,7 +6,7 @@ from pvnet.training.train import train as pvnet_train
 
 def test_train_site(
     site_data_config_path,
-    trainer_cfg,
+    trainer_cfg_cpu,
     logger_cfg,
     ckpt_cfg,
     build_lit_late_fusion_cfg,
@@ -28,7 +28,7 @@ def test_train_site(
         ),
         "logger": logger_cfg,
         "callbacks": ckpt_cfg,
-        "trainer": trainer_cfg,
+        "trainer": trainer_cfg_cpu,
     })
 
     pvnet_train(cfg)
@@ -36,7 +36,7 @@ def test_train_site(
 
 def test_train_pv(
     uk_data_config_path,
-    trainer_cfg,
+    trainer_cfg_cpu,
     logger_cfg,
     ckpt_cfg,
     build_lit_late_fusion_cfg,
@@ -58,7 +58,7 @@ def test_train_pv(
         ),
         "logger": logger_cfg,
         "callbacks": ckpt_cfg,
-        "trainer": trainer_cfg,
+        "trainer": trainer_cfg_cpu,
     })
 
     pvnet_train(cfg)
