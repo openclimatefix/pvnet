@@ -8,6 +8,8 @@ import numpy as np
 import xarray as xr
 import torch
 
+from omegaconf import OmegaConf
+
 from ocf_data_sampler.torch_datasets.sample.site import SiteSample
 from ocf_data_sampler.torch_datasets.datasets import SitesDataset
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
@@ -16,7 +18,6 @@ from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configura
 from pvnet.datamodule import collate_fn
 from pvnet.datamodule import  UKRegionalDataModule, SitesDataModule
 from pvnet.models import LateFusionModel
-
 
 
 

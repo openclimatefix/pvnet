@@ -21,7 +21,6 @@ FULL_CONFIG_NAME =  "full_experiment_config.yaml"
 MODEL_CARD_NAME = "README.md"
 
 
-
 def run_config_utilities(config: DictConfig) -> None:
     """A couple of optional utilities.
 
@@ -155,3 +154,16 @@ def validate_batch_against_config(
             )
 
     logger.info("Batch shape validation successful!")
+
+
+def validate_gpu_config(config: DictConfig) -> None:
+    """Abort if multiple GPUs requested by mistake i.e. `devices: 2` instead of `[2]`."""
+    tr = config.get("trainer", {})
+    dev = tr.get("devices")
+
+    if isinstance(dev, int) and dev > 1:
+        raise ValueError(
+            f"Detected `devices: {dev}` — this requests {dev} GPUs. "
+            "If you meant a specific GPU (e.g. GPU 2), use `devices: [2]`. "
+            "Parallel training not supported."
+        )
