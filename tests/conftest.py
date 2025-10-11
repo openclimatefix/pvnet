@@ -423,6 +423,13 @@ def late_fusion_quantile_model(late_fusion_model_kwargs) -> LateFusionModel:
     return LateFusionModel(output_quantiles=[0.1, 0.5, 0.9], **late_fusion_model_kwargs)
 
 
+@pytest.fixture
+def trainer_cfg():
+    def _make(trainer_dict):
+        return OmegaConf.create({"trainer": trainer_dict})
+    return _make
+
+
 @pytest.fixture()
 def wandb_offline_env(monkeypatch, session_tmp_path):
     """Put W&B offline, quiet; force CPU."""
