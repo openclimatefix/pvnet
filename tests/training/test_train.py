@@ -1,7 +1,107 @@
-from __future__ import annotations
+"""Tests and fixtures for CPU-only Trainer and offline W&B logging."""
 
+from pathlib import Path
+
+import pytest
 from omegaconf import DictConfig
+
 from pvnet.training.train import train as pvnet_train
+
+
+@pytest.fixture()
+def wandb_offline_env(monkeypatch, session_tmp_path):
+    """Put W&B offline, quiet; force CPU."""
+    save_dir = str(session_tmp_path / "wandb")
+    monkeypatch.setenv("WANDB_SILENT", "true")
+    monkeypatch.setenv("WANDB_START_METHOD", "thread")
+    return save_dir
+
+
+@pytest.fixture()
+def trainer_cfg_cpu():
+    """Tiny CPU-only Trainer config."""
+    return dict(
+        _target_="lightning.pytorch.Trainer",
+        max_epochs=1,
+        limit_train_batches=1,
+        limit_val_batches=1,
+        accelerator="cpu",
+        enable_checkpointing=True,
+        log_every_n_steps=1,
+    )
+
+
+@pytest.fixture()
+def logger_cfg(wandb_offline_env):
+    """W&B logger config."""
+    return {
+        "wandb": {
+            "_target_": "lightning.pytorch.loggers.wandb.WandbLogger",
+            "project": "pvnet-tests",
+            "save_dir": wandb_offline_env,
+            "offline": True,
+            "name": "train-offline-integration",
+        }
+    }
+
+
+@pytest.fixture()
+def ckpt_cfg(wandb_offline_env):
+    """ModelCheckpoint config."""
+    return {
+        "ckpt": {
+            "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "dirpath": str(Path(wandb_offline_env).parent / "ckpts"),
+            "save_last": True,
+            "save_top_k": 1,
+            "monitor": "MAE/val",
+            "mode": "min",
+        }
+    }
+
+
+def build_lit_late_fusion_cfg(
+    *,
+    target_key: str,
+    interval_minutes: int,
+    include_time: bool,
+    forecast_minutes: int = 480,
+    history_minutes: int = 60,
+):
+    """Build config for PVNetLightningModule + minimal LateFusionModel."""
+    return {
+        "_target_": "pvnet.training.lightning_module.PVNetLightningModule",
+        "model": {
+            "_target_": "pvnet.models.LateFusionModel",
+            "target_key": target_key,
+            "sat_encoder": None,
+            "nwp_encoders_dict": None,
+            "add_image_embedding_channel": False,
+            "pv_encoder": None,
+            "output_network": {
+                "_target_": "pvnet.models.late_fusion.linear_networks.networks.ResFCNet",
+                "_partial_": True,
+                "fc_hidden_features": 128,
+                "n_res_blocks": 6,
+                "res_block_layers": 2,
+                "dropout_frac": 0.0,
+            },
+            "location_id_mapping": None,
+            "embedding_dim": None,
+            "include_sun": False,
+            "include_time": include_time,
+            "include_site_yield_history": target_key == "site",
+            "include_gsp_yield_history": target_key in ("gsp", "gsp_yield"),
+            "forecast_minutes": forecast_minutes,
+            "history_minutes": history_minutes,
+            "interval_minutes": interval_minutes,
+        },
+        "optimizer": {
+            "_target_": "pvnet.optimizers.Adam",
+            "lr": 1e-3,
+        },
+        "save_all_validation_results": False,
+    }
 
 
 def test_train_site(
@@ -9,7 +109,6 @@ def test_train_site(
     trainer_cfg_cpu,
     logger_cfg,
     ckpt_cfg,
-    build_lit_late_fusion_cfg,
 ):
     """Train site model with W&B offline."""
     cfg = DictConfig({
@@ -39,7 +138,6 @@ def test_train_pv(
     trainer_cfg_cpu,
     logger_cfg,
     ckpt_cfg,
-    build_lit_late_fusion_cfg,
 ):
     """Train GSP model with W&B offline."""
     cfg = DictConfig({
