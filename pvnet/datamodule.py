@@ -8,7 +8,7 @@ from ocf_data_sampler.numpy_sample.collate import stack_np_samples_into_batch
 from ocf_data_sampler.numpy_sample.common_types import NumpySample, TensorBatch
 from ocf_data_sampler.torch_datasets.datasets.pvnet_uk import PVNetUKRegionalDataset
 from ocf_data_sampler.torch_datasets.datasets.site import SitesDataset
-from ocf_data_sampler.torch_datasets.sample.base import batch_to_tensor
+from ocf_data_sampler.torch_datasets.utils.torch_batch_utils import batch_to_tensor
 from torch.utils.data import DataLoader, Dataset, Subset
 
 
