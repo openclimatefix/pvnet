@@ -23,8 +23,8 @@ import torch
 import xarray as xr
 import yaml
 from ocf_data_sampler.torch_datasets.utils.torch_batch_utils import (
-    batch_to_tensor, 
-    copy_batch_to_device
+    batch_to_tensor,
+    copy_batch_to_device,
 )
 from pvnet_summation.data.datamodule import StreamedDataset
 from pvnet_summation.models.base_model import BaseModel as SummationBaseModel
