@@ -43,8 +43,7 @@ class LateFusionModel(BaseModel):
         sat_encoder: AbstractNWPSatelliteEncoder | None = None,
         pv_encoder: AbstractSitesEncoder | None = None,
         add_image_embedding_channel: bool = False,
-        include_gsp_yield_history: bool = True,
-        include_site_yield_history: bool = False,
+        include_generation_yield_history: bool = False,
         include_sun: bool = True,
         include_time: bool = False,
         location_id_mapping: dict[Any, int] | None = None,
@@ -56,7 +55,7 @@ class LateFusionModel(BaseModel):
         nwp_forecast_minutes: DictConfig | None = None,
         nwp_history_minutes: DictConfig | None = None,
         pv_history_minutes: int | None = None,
-        target_key: str = "gsp",
+        target_key: str = "generation",
         interval_minutes: int = 30,
         nwp_interval_minutes: DictConfig | None = None,
         pv_interval_minutes: int = 5,
@@ -85,7 +84,7 @@ class LateFusionModel(BaseModel):
             add_image_embedding_channel: Add a channel to the NWP and satellite data with the
                 embedding of the GSP ID.
             include_gsp_yield_history: Include GSP yield data.
-            include_site_yield_history: Include Site yield data.
+            include_generation_yield_history: Include generation yield data.
             include_sun: Include sun azimuth and altitude data.
             include_time: Include sine and cosine of dates and times.
             location_id_mapping: A dictionary mapping the location ID to an integer. ID embedding is
@@ -118,8 +117,7 @@ class LateFusionModel(BaseModel):
             interval_minutes=interval_minutes,
         )
 
-        self.include_gsp_yield_history = include_gsp_yield_history
-        self.include_site_yield_history = include_site_yield_history
+        self.include_generation_yield_history = include_generation_yield_history
         self.include_sat = sat_encoder is not None
         self.include_nwp = nwp_encoders_dict is not None and len(nwp_encoders_dict) != 0
         self.include_pv = pv_encoder is not None
@@ -256,11 +254,7 @@ class LateFusionModel(BaseModel):
             # Update num features
             fusion_input_features += 32
 
-        if include_gsp_yield_history:
-            # Update num features
-            fusion_input_features += self.history_len
-
-        if include_site_yield_history:
+        if include_generation_yield_history:
             # Update num features
             fusion_input_features += self.history_len + 1
 
@@ -276,8 +270,8 @@ class LateFusionModel(BaseModel):
         if self.use_id_embedding:
             # eg: x['gsp_id'] = [1] with location_id_mapping = {1:0}, would give [0]
             id = torch.tensor(
-                [self.location_id_mapping[i.item()] for i in x[f"{self._target_key}_id"]],
-                device=x[f"{self._target_key}_id"].device,
+                [self.location_id_mapping[i.item()] for i in x["location_id"]],
+                device=x["location_id"].device,
                 dtype=torch.int64,
             )
 
@@ -308,32 +302,20 @@ class LateFusionModel(BaseModel):
                 nwp_out = self.nwp_encoders_dict[nwp_source](nwp_data)
                 modes[f"nwp/{nwp_source}"] = nwp_out
 
-        # *********************** Site Data *************************************
-        # Add site-level yield history
-        if self.include_site_yield_history:
-            site_history = x["site"][:, : self.history_len + 1].float()
-            site_history = site_history.reshape(site_history.shape[0], -1)
-            modes["site"] = site_history
+        # *********************** Generation Data *************************************
+        # Add generation yield history
+        if self.include_generation_yield_history:
+            generation_history = x["generation"][:, : self.history_len + 1].float()
+            generation_history = generation_history.reshape(generation_history.shape[0], -1)
+            modes["generation"] = generation_history
 
-        # Add site-level yield history through PV encoder
+        # Add location-level yield history through PV encoder
         if self.include_pv:
-            if self._target_key != "site":
-                modes["site"] = self.pv_encoder(x)
-            else:
-                # Target is PV, so only take the history
-                # Copy batch
-                x_tmp = x.copy()
-                x_tmp["site"] = x_tmp["site"][:, : self.history_len + 1]
-                modes["site"] = self.pv_encoder(x_tmp)
+            x_tmp = x.copy()
+            x_tmp["generation"] = x_tmp["generation"][:, : self.history_len + 1]
+            modes["generation"] = self.pv_encoder(x_tmp)
 
-        # *********************** GSP Data ************************************
-        # Add gsp yield history
-        if self.include_gsp_yield_history:
-            gsp_history = x["gsp"][:, : self.history_len].float()
-            gsp_history = gsp_history.reshape(gsp_history.shape[0], -1)
-            modes["gsp"] = gsp_history
-
-        # ********************** Embedding of GSP/Site ID ********************
+        # ********************** Embedding of location ID ********************
         if self.use_id_embedding:
             modes["id"] = self.embed(id)
 

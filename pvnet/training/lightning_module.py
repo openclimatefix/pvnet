@@ -156,9 +156,9 @@ class PVNetLightningModule(pl.LightningModule):
 
         y = batch[target_key][:, -self.model.forecast_len :].cpu().numpy()
         y_hat = y_hat.cpu().numpy() 
-        ids = batch[f"{target_key}_id"].cpu().numpy()
+        ids = batch["location_id"].cpu().numpy()
         init_times_utc = pd.to_datetime(
-            batch[f"{target_key}_time_utc"][:, self.model.history_len+1]
+            batch["time_utc"][:, self.model.history_len+1]
             .cpu().numpy().astype("datetime64[ns]")
         )
 

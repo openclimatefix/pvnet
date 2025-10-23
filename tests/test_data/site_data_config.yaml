@@ -4,9 +4,8 @@ general:
 
 input_data:
 
-  site:
-    file_path: set_in_temp_file
-    metadata_file_path: set_in_temp_file
+  generation:
+    zarr_path: set_in_temp_file
     interval_start_minutes: -60
     interval_end_minutes: 480
     time_resolution_minutes: 15

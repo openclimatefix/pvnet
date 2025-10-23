@@ -1,11 +1,11 @@
-from pvnet.datamodule import SitesDataModule
+from pvnet.datamodule import PVNetDataModule
 
 
 
 def test_sites_data_module(site_data_config_path):
-    """Test SitesDataModule initialization"""
+    """Test PVNetDataModule initialization"""
 
-    _ = SitesDataModule(
+    _ = PVNetDataModule(
         configuration=site_data_config_path,
         batch_size=2,
         num_workers=0,

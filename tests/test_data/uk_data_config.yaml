@@ -4,7 +4,7 @@ general:
 
 input_data:
 
-  gsp:
+  generation:
     zarr_path: set_in_temp_file
     interval_start_minutes: -60
     interval_end_minutes: 480
