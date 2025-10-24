@@ -9,7 +9,7 @@ from pvnet.training.train import train as pvnet_train
 
 
 @pytest.fixture()
-def wandb_offline(session_tmp_path) -> str:
+def wandb_save_dir(session_tmp_path) -> str:
     """Return W&B save dir under session temp path."""
     save_dir = str(session_tmp_path / "wandb")
     return save_dir
@@ -31,13 +31,13 @@ def trainer_cfg_cpu() -> dict:
 
 
 @pytest.fixture()
-def logger_cfg(wandb_offline: str) -> dict:
+def logger_cfg(wandb_save_dir: str) -> dict:
     """W&B logger config."""
     return {
         "wandb": {
             "_target_": "lightning.pytorch.loggers.wandb.WandbLogger",
             "project": "pvnet-tests",
-            "save_dir": wandb_offline,
+            "save_dir": wandb_save_dir,
             "offline": True,
             "name": "train-offline-integration",
             "log_model": False,
@@ -46,12 +46,12 @@ def logger_cfg(wandb_offline: str) -> dict:
 
 
 @pytest.fixture()
-def ckpt_cfg(wandb_offline: str) -> dict:
+def ckpt_cfg(wandb_save_dir: str) -> dict:
     """ModelCheckpoint config."""
     return {
         "ckpt": {
             "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
-            "dirpath": str(Path(wandb_offline).parent / "ckpts"),
+            "dirpath": str(Path(wandb_save_dir).parent / "ckpts"),
             "save_last": True,
             "save_top_k": 1,
             "monitor": "MAE/val",
