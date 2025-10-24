@@ -61,7 +61,6 @@ def ckpt_cfg(wandb_offline_env):
 
 
 def build_lit_late_fusion_cfg(
-    *,
     target_key: str,
     interval_minutes: int,
     include_time: bool,
