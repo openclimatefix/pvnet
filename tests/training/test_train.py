@@ -9,35 +9,35 @@ from pvnet.training.train import train as pvnet_train
 
 
 @pytest.fixture()
-def wandb_offline_env(monkeypatch, session_tmp_path):
-    """Put W&B offline, quiet; force CPU."""
+def wandb_offline(session_tmp_path) -> str:
+    """Return W&B save dir under session temp path."""
     save_dir = str(session_tmp_path / "wandb")
     return save_dir
 
 
 @pytest.fixture()
-def trainer_cfg_cpu():
+def trainer_cfg_cpu() -> dict:
     """Tiny CPU-only Trainer config."""
-    return dict(
-        _target_="lightning.pytorch.Trainer",
-        max_epochs=1,
-        limit_train_batches=1,
-        limit_val_batches=1,
-        accelerator="cpu",
-        enable_checkpointing=True,
-        log_every_n_steps=1,
-        enable_progress_bar=False,
-    )
+    return {
+        "_target_": "lightning.pytorch.Trainer",
+        "max_epochs": 1,
+        "limit_train_batches": 1,
+        "limit_val_batches": 1,
+        "accelerator": "cpu",
+        "enable_checkpointing": True,
+        "log_every_n_steps": 1,
+        "enable_progress_bar": False,
+    }
 
 
 @pytest.fixture()
-def logger_cfg(wandb_offline_env):
+def logger_cfg(wandb_offline: str) -> dict:
     """W&B logger config."""
     return {
         "wandb": {
             "_target_": "lightning.pytorch.loggers.wandb.WandbLogger",
             "project": "pvnet-tests",
-            "save_dir": wandb_offline_env,
+            "save_dir": wandb_offline,
             "offline": True,
             "name": "train-offline-integration",
             "log_model": False,
@@ -46,12 +46,12 @@ def logger_cfg(wandb_offline_env):
 
 
 @pytest.fixture()
-def ckpt_cfg(wandb_offline_env):
+def ckpt_cfg(wandb_offline: str) -> dict:
     """ModelCheckpoint config."""
     return {
         "ckpt": {
             "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
-            "dirpath": str(Path(wandb_offline_env).parent / "ckpts"),
+            "dirpath": str(Path(wandb_offline).parent / "ckpts"),
             "save_last": True,
             "save_top_k": 1,
             "monitor": "MAE/val",
@@ -66,7 +66,7 @@ def build_lit_late_fusion_cfg(
     include_time: bool,
     forecast_minutes: int = 480,
     history_minutes: int = 60,
-):
+) -> dict:
     """Build config for PVNetLightningModule + minimal LateFusionModel."""
     return {
         "_target_": "pvnet.training.lightning_module.PVNetLightningModule",

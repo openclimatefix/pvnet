@@ -38,7 +38,10 @@ from ocf_data_sampler.config import load_yaml_configuration
 from ocf_data_sampler.load.load_dataset import get_dataset_dict
 from ocf_data_sampler.numpy_sample.common_types import NumpyBatch
 from ocf_data_sampler.torch_datasets.datasets.site import SitesDatasetConcurrent
-from ocf_data_sampler.torch_datasets.sample.base import batch_to_tensor, copy_batch_to_device
+from ocf_data_sampler.torch_datasets.utils.torch_batch_utils import (
+    batch_to_tensor,
+    copy_batch_to_device,
+)
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from tqdm import tqdm

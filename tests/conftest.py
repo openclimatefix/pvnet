@@ -278,8 +278,12 @@ def uk_batch(uk_streamed_datamodule) -> TensorBatch:
 @pytest.fixture(scope="session")
 def site_batch(site_data_config_path) -> TensorBatch:
     dataset = SitesDataset(site_data_config_path)
+<<<<<<< HEAD
     samples = [dataset[i] for i in range(2)]
     return collate_fn(samples)
+=======
+    return collate_fn([dataset[i] for i in range(2)])
+>>>>>>> origin/main
 
 
 @pytest.fixture(scope="session")
