@@ -12,8 +12,6 @@ from pvnet.training.train import train as pvnet_train
 def wandb_offline_env(monkeypatch, session_tmp_path):
     """Put W&B offline, quiet; force CPU."""
     save_dir = str(session_tmp_path / "wandb")
-    monkeypatch.setenv("WANDB_SILENT", "true")
-    monkeypatch.setenv("WANDB_START_METHOD", "thread")
     return save_dir
 
 
@@ -28,6 +26,7 @@ def trainer_cfg_cpu():
         accelerator="cpu",
         enable_checkpointing=True,
         log_every_n_steps=1,
+        enable_progress_bar=False,
     )
 
 
@@ -41,6 +40,7 @@ def logger_cfg(wandb_offline_env):
             "save_dir": wandb_offline_env,
             "offline": True,
             "name": "train-offline-integration",
+            "log_model": False,
         }
     }
 
@@ -91,7 +91,7 @@ def build_lit_late_fusion_cfg(
             "include_sun": False,
             "include_time": include_time,
             "include_site_yield_history": target_key == "site",
-            "include_gsp_yield_history": target_key in ("gsp", "gsp_yield"),
+            "include_gsp_yield_history": target_key == "gsp",
             "forecast_minutes": forecast_minutes,
             "history_minutes": history_minutes,
             "interval_minutes": interval_minutes,
