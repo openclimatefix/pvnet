@@ -39,6 +39,7 @@ class LateFusionModel(BaseModel):
         self,
         output_network: AbstractLinearNetwork,
         output_quantiles: list[float] | None = None,
+        num_gmm_components: int | None = None,
         nwp_encoders_dict: dict[str, AbstractNWPSatelliteEncoder] | None = None,
         sat_encoder: AbstractNWPSatelliteEncoder | None = None,
         pv_encoder: AbstractSitesEncoder | None = None,
@@ -61,6 +62,7 @@ class LateFusionModel(BaseModel):
         nwp_interval_minutes: DictConfig | None = None,
         pv_interval_minutes: int = 5,
         sat_interval_minutes: int = 5,
+        adapt_batches: bool = False,
     ):
         """Neural network which combines information from different sources.
 
@@ -76,6 +78,9 @@ class LateFusionModel(BaseModel):
                 features to produce the forecast.
             output_quantiles: A list of float (0.0, 1.0) quantiles to predict values for. If set to
                 None the output is a single value.
+            num_gmm_components: If set to an integer, the model will predict parameters for a
+                Gaussian mixture model with this many components. Mutually exclusive with
+                output_quantiles.
             nwp_encoders_dict: A dictionary of partially instantiated pytorch Module class used to
                 encode the NWP data from 4D into a 1D feature vector from different sources.
             sat_encoder: A partially instantiated pytorch Module class used to encode the satellite
@@ -109,11 +114,15 @@ class LateFusionModel(BaseModel):
                 data for each source
             pv_interval_minutes: The interval between each sample of the PV data
             sat_interval_minutes: The interval between each sample of the satellite data
+            adapt_batches: If set to true, we attempt to slice the batches to the expected shape for
+                the model to use. This allows us to overprepare batches and slice from them for the
+                data we need for a model run.
         """
         super().__init__(
             history_minutes=history_minutes,
             forecast_minutes=forecast_minutes,
             output_quantiles=output_quantiles,
+            num_gmm_components=num_gmm_components,
             target_key=target_key,
             interval_minutes=interval_minutes,
         )
@@ -130,6 +139,7 @@ class LateFusionModel(BaseModel):
         self.add_image_embedding_channel = add_image_embedding_channel
         self.interval_minutes = interval_minutes
         self.min_sat_delay_minutes = min_sat_delay_minutes
+        self.adapt_batches = adapt_batches
 
         if self.location_id_mapping is None:
             logger.warning(
@@ -154,7 +164,7 @@ class LateFusionModel(BaseModel):
 
         if self.include_sat:
             # Param checks
-            assert sat_history_minutes is not None, "sat_history_minutes is not present in config"
+            assert sat_history_minutes is not None
 
             self.sat_sequence_len = (
                 sat_history_minutes - min_sat_delay_minutes
@@ -174,18 +184,12 @@ class LateFusionModel(BaseModel):
 
         if self.include_nwp:
             # Param checks
-            assert nwp_forecast_minutes is not None, "nwp_forecast_minutes is not present in config"
-            assert nwp_history_minutes is not None, "nwp_history_minutes is not present in config"
+            assert nwp_forecast_minutes is not None
+            assert nwp_history_minutes is not None
 
             # For each NWP encoder the forecast and history minutes must be set
-            assert set(nwp_encoders_dict.keys()) == set(nwp_forecast_minutes.keys()), (
-                f"nwp encoder keys {set(nwp_encoders_dict.keys())} do not match "
-                f"nwp_forecast_minutes keys {set(nwp_forecast_minutes.keys())}"
-            )
-            assert set(nwp_encoders_dict.keys()) == set(nwp_history_minutes.keys()), (
-                f"nwp encoder keys {set(nwp_encoders_dict.keys())} do not match "
-                f"nwp_history_minutes keys {set(nwp_history_minutes.keys())}"
-            )
+            assert set(nwp_encoders_dict.keys()) == set(nwp_forecast_minutes.keys())
+            assert set(nwp_encoders_dict.keys()) == set(nwp_history_minutes.keys())
 
             if nwp_interval_minutes is None:
                 nwp_interval_minutes = dict.fromkeys(nwp_encoders_dict.keys(), 60)
@@ -219,7 +223,7 @@ class LateFusionModel(BaseModel):
                 fusion_input_features += self.nwp_encoders_dict[nwp_source].out_features
 
         if self.include_pv:
-            assert pv_history_minutes is not None, "pv_history_minutes is not present in config"
+            assert pv_history_minutes is not None
 
             self.pv_encoder = pv_encoder(
                 sequence_length=pv_history_minutes // pv_interval_minutes + 1,
@@ -273,6 +277,9 @@ class LateFusionModel(BaseModel):
     def forward(self, x: TensorBatch) -> torch.Tensor:
         """Run model forward"""
 
+        if self.adapt_batches:
+            x = self._adapt_batch(x)        
+        
         if self.use_id_embedding:
             # eg: x['gsp_id'] = [1] with location_id_mapping = {1:0}, would give [0]
             id = torch.tensor(
@@ -352,6 +359,9 @@ class LateFusionModel(BaseModel):
 
         if self.use_quantile_regression:
             # Shape: batch_size, seq_length * num_quantiles
-            out = out.reshape(out.shape[0], self.forecast_len, len(self.output_quantiles))
+            out = out.view(out.size(0), self.forecast_len, len(self.output_quantiles))
+
+        # no further reshape needed if gmm is used: BaseModel._parse_gmm_params will view it as
+        # (batch, forecast_len, num_components, 3)        
 
         return out
