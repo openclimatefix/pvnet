@@ -150,6 +150,7 @@ class LateFusionModel(BaseModel):
 
         # Number of features expected by the output_network
         # Add to this as network pieces are constructed
+        # testing comment
         fusion_input_features = 0
 
         if self.include_sat:
