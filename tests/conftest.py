@@ -144,25 +144,38 @@ def ecmwf_zarr_path(session_tmp_path) -> str:
 
 
 @pytest.fixture(scope="session")
-def gsp_zarr_path(session_tmp_path) -> str:
-    times = pd.date_range("2023-01-01 00:00", "2023-01-02 00:00", freq="30min")
-    gsp_ids = np.arange(0, 318)
-    capacity = np.ones((len(times), len(gsp_ids)))
-    generation = np.random.uniform(0, 200, size=(len(times), len(gsp_ids))).astype(np.float32)
+def generation_zarr_path(session_tmp_path) -> str:
 
-    coords = (
-        ("datetime_gmt", times),
-        ("gsp_id", gsp_ids),
+    times = pd.date_range("2023-01-01 00:00", "2023-01-02 00:00", freq="30min")
+    location_ids = np.arange(318)
+    # Rough UK bounding box
+    lat_min, lat_max = 49.9, 58.7
+    lon_min, lon_max = -8.6, 1.8
+
+    # Generate random uniform points
+    latitudes = np.random.uniform(lat_min, lat_max, len(location_ids)).astype("float64")
+    longitudes = np.random.uniform(lon_min, lon_max, len(location_ids)).astype("float64")
+
+    capacity = np.ones((len(times), len(location_ids)))
+
+    generation = np.random.uniform(0, 200, (len(times), len(location_ids))).astype(np.float32)
+
+    # Build Dataset
+    ds_uk = xr.Dataset(
+        data_vars={
+            "capacity_mwp": (("time_utc", "location_id"), capacity),
+            "generation_mw": (("time_utc", "location_id"), generation),
+        },
+        coords={
+            "time_utc": times,
+            "location_id": location_ids,
+            "latitude": ("location_id", latitudes),
+            "longitude": ("location_id", longitudes),
+        },
     )
 
-    ds_uk_gsp = xr.Dataset({
-        "capacity_mwp": xr.DataArray(capacity, coords=coords),
-        "installedcapacity_mwp": xr.DataArray(capacity, coords=coords),
-        "generation_mw": xr.DataArray(generation, coords=coords),
-    })
-
-    zarr_path = session_tmp_path / "uk_gsp.zarr"
-    ds_uk_gsp.to_zarr(zarr_path)
+    zarr_path = session_tmp_path / "uk_generation.zarr"
+    ds_uk.to_zarr(zarr_path)
     return zarr_path
 
 
@@ -209,7 +222,7 @@ def uk_data_config_path(
     sat_zarr_path, 
     ukv_zarr_path, 
     ecmwf_zarr_path, 
-    gsp_zarr_path
+    generation_zarr_path
 ) -> str:  
     
     # Populate the config with the generated zarr paths
@@ -217,7 +230,7 @@ def uk_data_config_path(
     config.input_data.nwp["ukv"].zarr_path = str(ukv_zarr_path)
     config.input_data.nwp["ecmwf"].zarr_path = str(ecmwf_zarr_path)
     config.input_data.satellite.zarr_path = str(sat_zarr_path)
-    config.input_data.gsp.zarr_path = str(gsp_zarr_path)
+    config.input_data.generation.zarr_path = str(generation_zarr_path)
 
     filename = f"{session_tmp_path}/uk_data_config.yaml"
     save_yaml_configuration(config, filename)
@@ -359,7 +372,7 @@ def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
         location_id_mapping={i:i for i in range(1, 318)},
         embedding_dim=16,
         include_sun=True,
-        include_gsp_yield_history=True,
+        include_generation_yield_history=True,
         sat_history_minutes=30,
         nwp_history_minutes={"ukv": 120, "ecmwf": 120},
         nwp_forecast_minutes={"ukv": 480, "ecmwf": 480},
@@ -400,7 +413,7 @@ def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs) -> dict:
         embedding_dim=None,
         include_sun=False,
         include_time=True,
-        include_gsp_yield_history=False,
+        include_generation_yield_history=False,
         include_site_yield_history=True,
         forecast_minutes=480, 
         history_minutes=60,

@@ -83,7 +83,7 @@ class LateFusionModel(BaseModel):
                 PV data from 2D into a 1D feature vector.
             add_image_embedding_channel: Add a channel to the NWP and satellite data with the
                 embedding of the GSP ID.
-            include_gsp_yield_history: Include GSP yield data.
+            include_generation_yield_history: Include GSP yield data.
             include_generation_yield_history: Include generation yield data.
             include_sun: Include sun azimuth and altitude data.
             include_time: Include sine and cosine of dates and times.
