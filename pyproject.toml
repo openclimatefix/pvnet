@@ -9,7 +9,7 @@ authors = [{name="Peter Dudfield", email="info@openclimatefix.org"}]
 dynamic = ["version"]
 license={file="LICENCE"}
 readme = {file="README.md", content-type="text/markdown"}
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 
 dependencies = [
     "ocf-data-sampler>=0.6.0",
@@ -18,7 +18,8 @@ dependencies = [
     "matplotlib",
     "xarray",
     "h5netcdf",
-    "torch>=2.0.0",
+    "torch==2.5.*",
+    "torchvision==0.20.*",
     "lightning",
     "typer",
     "sqlalchemy",
@@ -74,7 +75,7 @@ testpaths = [
 [tool.ruff]
 line-length = 100
 exclude = ["tests"]
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 extend-select = ["E", "D", "I"]
