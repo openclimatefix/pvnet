@@ -18,6 +18,7 @@ from pvnet.datamodule import collate_fn
 from pvnet.datamodule import  UKRegionalDataModule, SitesDataModule
 from pvnet.models import LateFusionModel
 
+from pvnet.models.base_model import BaseModel
 
 
 _top_test_directory = os.path.dirname(os.path.realpath(__file__))
@@ -428,3 +429,43 @@ def trainer_cfg():
     def _make(trainer_dict):
         return OmegaConf.create({"trainer": trainer_dict})
     return _make
+
+
+@pytest.fixture()
+def gmm_model_factory():
+    """Factory to create a minimal BaseModel with GMM support for testing."""
+    def _factory(forecast_len: int = 5, num_components: int = 3):
+        # Create a minimal model just for testing GMM functionality
+        # We don't need a full LateFusionModel for unit testing the GMM methods
+        return BaseModel(
+            history_minutes=0,
+            forecast_minutes=forecast_len * 30,  # Convert to minutes
+            interval_minutes=30,
+            num_gmm_components=num_components,
+        )
+    return _factory
+
+
+@pytest.fixture()
+def build_y_gmm_from_params():
+    """
+    Helper to construct y_gmm tensor from separate mu, sigma_raw, logit tensors.
+    Assumes y_gmm shape is [B, H, K*3] where components are interleaved.
+    """
+    def _build(mus: torch.Tensor, sigma_raws: torch.Tensor, logits: torch.Tensor):
+        """
+        Args:
+            mus: [B, H, K]
+            sigma_raws: [B, H, K]
+            logits: [B, H, K]
+        
+        Returns:
+            y_gmm: [B, H, K*3] with interleaved [mu, sigma_raw, logit] per component
+        """
+        B, H, K = mus.shape
+        # Interleave: [mu0, sigma0, logit0, mu1, sigma1, logit1, ...]
+        y_gmm = torch.stack([mus, sigma_raws, logits], dim=-1)  # [B, H, K, 3]
+        y_gmm = y_gmm.reshape(B, H, K * 3)  # [B, H, K*3]
+        return y_gmm
+
+    return _build
