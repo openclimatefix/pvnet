@@ -10,6 +10,7 @@ from torch import nn
 from pvnet.models.late_fusion.linear_networks.networks import ResFCNet
 from pvnet.models.late_fusion.site_encoders.basic_blocks import AbstractSitesEncoder
 
+
 # TODO update this to work with the new sample data format
 class SimpleLearnedAggregator(AbstractSitesEncoder):
     """A simple model which learns a different weighted-average across all PV sites for each GSP.
