@@ -9,7 +9,7 @@ authors = [{name="Peter Dudfield", email="info@openclimatefix.org"}]
 dynamic = ["version"]
 license={file="LICENCE"}
 readme = {file="README.md", content-type="text/markdown"}
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 
 dependencies = [
     "ocf-data-sampler>=0.6.0",
