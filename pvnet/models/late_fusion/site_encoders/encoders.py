@@ -127,8 +127,7 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
         kv_res_block_layers: int = 2,
         use_id_in_value: bool = False,
         target_id_dim: int = 318,
-        target_key_to_use: str = "gsp",
-        input_key_to_use: str = "site",
+        key_to_use: str = "generation",
         num_channels: int = 1,
         num_sites_in_inference: int = 1,
     ):
@@ -149,8 +148,7 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
             use_id_in_value: Whether to use a site ID embedding in network used to produce the
                 value for the attention layer.
             target_id_dim: The number of unique IDs.
-            target_key_to_use: The key to use for the target in the attention layer.
-            input_key_to_use: The key to use for the input in the attention layer.
+            key_to_use: The key to use in the attention layer.
             num_channels: Number of channels in the input data
             num_sites_in_inference: Number of sites to use in inference.
                 This is used to determine the number of sites to use in the
@@ -161,11 +159,10 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
         super().__init__(sequence_length, num_sites, out_features)
         self.sequence_length = sequence_length
         self.target_id_embedding = nn.Embedding(target_id_dim, out_features)
-        self.site_id_embedding = nn.Embedding(num_sites, id_embed_dim)
+        self.id_embedding = nn.Embedding(num_sites, id_embed_dim)
         self._ids = nn.parameter.Parameter(torch.arange(num_sites), requires_grad=False)
         self.use_id_in_value = use_id_in_value
-        self.target_key_to_use = target_key_to_use
-        self.input_key_to_use = input_key_to_use
+        self.key_to_use = key_to_use
         self.num_channels = num_channels
         self.num_sites_in_inference = num_sites_in_inference
 
@@ -206,7 +203,7 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
     def _encode_inputs(self, x: TensorBatch) -> tuple[torch.Tensor, int]:
         # Shape: [batch size, sequence length, number of sites]
         # Shape: [batch size,  station_id, sequence length,  channels]
-        input_data = x[f"{self.input_key_to_use}"]
+        input_data = x[f"{self.key_to_use}"]
         if len(input_data.shape) == 2:  # one site per sample
             input_data = input_data.unsqueeze(-1)  # add dimension of 1 to end to make 3D
         if len(input_data.shape) == 4:  # Has multiple channels
@@ -216,16 +213,12 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
             input_data = input_data[:, : self.sequence_length]
         site_seqs = input_data.float()
         batch_size = site_seqs.shape[0]
-        site_seqs = site_seqs.swapaxes(1, 2)  # [batch size, Site ID, sequence length]
+        site_seqs = site_seqs.swapaxes(1, 2)  # [batch size, location ID, sequence length]
         return site_seqs, batch_size
 
     def _encode_query(self, x: TensorBatch) -> torch.Tensor:
-        if self.target_key_to_use == "gsp":
-            # GSP seems to have a different structure
-            ids = x[f"{self.target_key_to_use}_id"]
-        else:
-            ids = x[f"{self.input_key_to_use}_id"]
-        ids = ids.int()
+        # GSP seems to have a different structure
+        ids = x["location_id"].int()
         query = self.target_id_embedding(ids).unsqueeze(1)
         return query
 
@@ -233,9 +226,9 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
         site_seqs, batch_size = self._encode_inputs(x)
 
         # site ID embeddings are the same for each sample
-        site_id_embed = torch.tile(self.site_id_embedding(self._ids), (batch_size, 1, 1))
+        id_embed = torch.tile(self.id_embedding(self._ids), (batch_size, 1, 1))
         # Each concated (site sequence, site ID embedding) is processed with encoder
-        x_seq_in = torch.cat((site_seqs, site_id_embed), dim=2).flatten(0, 1)
+        x_seq_in = torch.cat((site_seqs, id_embed), dim=2).flatten(0, 1)
         key = self._key_encoder(x_seq_in)
 
         # Reshape to [batch size, site, kdim]
@@ -247,9 +240,9 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
 
         if self.use_id_in_value:
             # site ID embeddings are the same for each sample
-            site_id_embed = torch.tile(self.value_id_embedding(self._ids), (batch_size, 1, 1))
+            id_embed = torch.tile(self.value_id_embedding(self._ids), (batch_size, 1, 1))
             # Each concated (site sequence, site ID embedding) is processed with encoder
-            x_seq_in = torch.cat((site_seqs, site_id_embed), dim=2).flatten(0, 1)
+            x_seq_in = torch.cat((site_seqs, id_embed), dim=2).flatten(0, 1)
         else:
             # Encode each site sequence independently
             x_seq_in = site_seqs.flatten(0, 1)

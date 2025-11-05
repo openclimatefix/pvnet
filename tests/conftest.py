@@ -180,44 +180,7 @@ def generation_zarr_path(session_tmp_path) -> str:
 
 
 @pytest.fixture(scope="session")
-def site_data_paths(session_tmp_path) -> tuple[str, str]:
-
-    times = pd.date_range("2023-01-01 00:00", "2023-01-02 00:00", freq="15min")
-    site_ids = np.arange(0, 10)
-
-    capacity = np.ones(len(site_ids))
-    lons = np.linspace(-4, -3, len(site_ids))
-    lats = np.linspace(51, 52, len(site_ids))
-
-    coords = (("time_utc", times), ("site_id", site_ids))
-
-    generation_data = np.random.uniform(
-        low=0, 
-        high=200, 
-        size=tuple(len(coord_values) for _, coord_values in coords)
-    ).astype(np.float32)
-
-    ds_gen = xr.DataArray(generation_data, coords=coords).to_dataset(name="generation_kw")
-
-    df_meta = pd.DataFrame(
-        {
-            "site_id": site_ids,
-            "capacity_kwp": capacity,
-            "longitude": lons,
-            "latitude": lats,
-        }
-    )
-
-    generation_data_path = session_tmp_path / f"sites_data.netcdf"
-    metadata_path = session_tmp_path / f"sites_metadata.csv"
-    ds_gen.to_netcdf(generation_data_path)
-    df_meta.to_csv(metadata_path, index=False)
-
-    return generation_data_path, metadata_path
-
-
-@pytest.fixture(scope="session")
-def uk_data_config_path(
+def data_config_path(
     session_tmp_path, 
     sat_zarr_path, 
     ukv_zarr_path, 
@@ -226,43 +189,21 @@ def uk_data_config_path(
 ) -> str:  
     
     # Populate the config with the generated zarr paths
-    config = load_yaml_configuration(f"{_top_test_directory}/test_data/uk_data_config.yaml")
+    config = load_yaml_configuration(f"{_top_test_directory}/test_data/data_config.yaml")
     config.input_data.nwp["ukv"].zarr_path = str(ukv_zarr_path)
     config.input_data.nwp["ecmwf"].zarr_path = str(ecmwf_zarr_path)
     config.input_data.satellite.zarr_path = str(sat_zarr_path)
     config.input_data.generation.zarr_path = str(generation_zarr_path)
 
-    filename = f"{session_tmp_path}/uk_data_config.yaml"
+    filename = f"{session_tmp_path}/data_config.yaml"
     save_yaml_configuration(config, filename)
     return filename
 
 
 @pytest.fixture(scope="session")
-def site_data_config_path(
-    session_tmp_path, 
-    sat_zarr_path, 
-    ukv_zarr_path, 
-    ecmwf_zarr_path, 
-    site_data_paths,
-) -> str:  
-    
-    # Populate the config with the generated zarr paths
-    config = load_yaml_configuration(f"{_top_test_directory}/test_data/site_data_config.yaml")
-    config.input_data.nwp["ukv"].zarr_path = str(ukv_zarr_path)
-    config.input_data.nwp["ecmwf"].zarr_path = str(ecmwf_zarr_path)
-    config.input_data.satellite.zarr_path = str(sat_zarr_path)
-    config.input_data.site.file_path = str(site_data_paths[0])
-    config.input_data.site.metadata_file_path = str(site_data_paths[1])
-
-    filename = f"{session_tmp_path}/site_data_config.yaml"
-    save_yaml_configuration(config, filename)
-    return filename
-
-
-@pytest.fixture(scope="session")
-def uk_streamed_datamodule(uk_data_config_path) -> PVNetDataModule:
+def streamed_datamodule(data_config_path) -> PVNetDataModule:
     dm = PVNetDataModule(
-        configuration=uk_data_config_path,
+        configuration=data_config_path,
         batch_size=2,
         num_workers=0,
         prefetch_factor=None,
@@ -270,33 +211,14 @@ def uk_streamed_datamodule(uk_data_config_path) -> PVNetDataModule:
     dm.setup(stage="fit")
     return dm
 
-
 @pytest.fixture(scope="session")
-def site_streamed_datamodule(site_data_config_path) -> PVNetDataModule:
-    dm = PVNetDataModule(
-        configuration=site_data_config_path,
-        batch_size=2,
-        num_workers=0,
-        prefetch_factor=None,
-    )
-    dm.setup(stage="fit")
-    return dm
+def batch(streamed_datamodule) -> TensorBatch:
+    return next(iter(streamed_datamodule.train_dataloader()))
 
 
 @pytest.fixture(scope="session")
-def uk_batch(uk_streamed_datamodule) -> TensorBatch:
-    return next(iter(uk_streamed_datamodule.train_dataloader()))
-
-
-@pytest.fixture(scope="session")
-def site_batch(site_data_config_path) -> TensorBatch:
-    dataset = PVNetDataset(site_data_config_path)
-    return collate_fn([dataset[i] for i in range(2)])
-
-
-@pytest.fixture(scope="session")
-def satellite_batch_component(uk_batch) -> torch.Tensor:
-    return torch.swapaxes(uk_batch["satellite_actual"], 1, 2).float()
+def satellite_batch_component(batch) -> torch.Tensor:
+    return torch.swapaxes(batch["satellite_actual"], 1, 2).float()
 
 
 @pytest.fixture()
@@ -322,9 +244,8 @@ def site_encoder_model_kwargs() -> dict:
         sequence_length=60 // 15 + 1,
         num_sites=1,
         out_features=128,
-        target_key_to_use="site"
+        key_to_use="generation",
     )
-
 
 @pytest.fixture()
 def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
@@ -393,10 +314,10 @@ def late_fusion_model(late_fusion_model_kwargs) -> LateFusionModel:
 
 
 @pytest.fixture()
-def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs) -> dict:
+def raw_late_fusion_model_kwargs_generation_history(model_minutes_kwargs) -> dict:
     return dict(
-        # Set inputs to None/False apart from site history
-        target_key="pv",
+        # Set inputs to None/False apart from generation history
+        target_key="generation",
         sat_encoder=None,
         nwp_encoders_dict=None,
         add_image_embedding_channel=False,
@@ -413,21 +334,20 @@ def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs) -> dict:
         embedding_dim=None,
         include_sun=False,
         include_time=True,
-        include_generation_yield_history=False,
-        include_site_yield_history=True,
+        include_generation_yield_history=True,
         forecast_minutes=480, 
         history_minutes=60,
-        interval_minutes=15,
+        interval_minutes=30,
     )
 
 
 @pytest.fixture()
-def late_fusion_model_kwargs_site_history(raw_late_fusion_model_kwargs_site_history) -> dict:
-    return hydra.utils.instantiate(raw_late_fusion_model_kwargs_site_history)
+def late_fusion_model_kwargs_site_history(raw_late_fusion_model_kwargs_generation_history) -> dict:
+    return hydra.utils.instantiate(raw_late_fusion_model_kwargs_generation_history)
 
 
 @pytest.fixture()
-def late_fusion_model_site_history(late_fusion_model_kwargs_site_history) -> LateFusionModel:
+def late_fusion_model_generation_history(late_fusion_model_kwargs_site_history) -> LateFusionModel:
     return LateFusionModel(**late_fusion_model_kwargs_site_history)
 
 

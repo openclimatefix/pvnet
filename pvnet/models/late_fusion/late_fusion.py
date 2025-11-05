@@ -222,7 +222,7 @@ class LateFusionModel(BaseModel):
             self.pv_encoder = pv_encoder(
                 sequence_length=pv_history_minutes // pv_interval_minutes + 1,
                 target_key_to_use=self._target_key,
-                input_key_to_use="site",
+                key_to_use="generation",
             )
 
             # Update num features

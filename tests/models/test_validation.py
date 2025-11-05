@@ -7,12 +7,12 @@ from pvnet.utils import validate_batch_against_config, validate_gpu_config
 
 
 def test_validate_batch_against_config(
-    uk_batch: dict,
+    batch: dict,
     late_fusion_model,
 ):
     """Test batch validation utility function."""
     # This should pass as full uk_batch is valid
-    validate_batch_against_config(batch=uk_batch, model=late_fusion_model)
+    validate_batch_against_config(batch=batch, model=late_fusion_model)
 
 
 def test_validate_batch_against_config_raises_error(late_fusion_model):
