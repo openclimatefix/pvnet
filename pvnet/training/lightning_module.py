@@ -263,14 +263,14 @@ class PVNetLightningModule(pl.LightningModule):
         # Calculate the persistance losses - we only need to do this once per training run
         # not every epoch
         if self.current_epoch==0:
-            # Need to find last valid value before forecast, not the dropped -1 values
+            # Need to find last valid value before forecast
             target_data = batch[self.model._target_key]
             history_data = target_data[:, :-(self.model.forecast_len)]
             
             # Find where values aren't dropped
-            valid_mask = history_data != -1
+            valid_mask = history_data >= 0
             
-            # Get the last valid value index for each sample
+            # Last valid value index for each sample
             flipped_mask = valid_mask.float().flip(dims=[1])
             last_valid_indices_flipped = torch.argmax(flipped_mask, dim=1)
             last_valid_indices = history_data.shape[1] - 1 - last_valid_indices_flipped
