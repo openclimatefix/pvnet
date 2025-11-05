@@ -399,7 +399,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         history_minutes: int,
         forecast_minutes: int,
         output_quantiles: list[float] | None = None,
-        target_key: str = "gsp",
         interval_minutes: int = 30,
     ):
         """Abtstract base class for PVNet submodels.
@@ -409,12 +408,12 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
             forecast_minutes (int): Length of the GSP forecast period in minutes
             output_quantiles: A list of float (0.0, 1.0) quantiles to predict values for. If set to
                 None the output is a single value.
-            target_key: The key of the target variable in the batch
             interval_minutes: The interval in minutes between each timestep in the data
         """
         super().__init__()
 
-        self._target_key = target_key
+        # The key of the target variable in the batch
+        self._target_key = "generation"
 
         self.history_minutes = history_minutes
         self.forecast_minutes = forecast_minutes

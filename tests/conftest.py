@@ -2,23 +2,17 @@ import os
 
 import dask.array
 import hydra
-import pytest
-import pandas as pd
 import numpy as np
-import xarray as xr
+import pandas as pd
+import pytest
 import torch
-
+import xarray as xr
+from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configuration
+from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from omegaconf import OmegaConf
 
-from ocf_data_sampler.torch_datasets.pvnet_dataset import PVNetDataset
-from ocf_data_sampler.numpy_sample.common_types import TensorBatch
-from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configuration
-
-from pvnet.datamodule import collate_fn
 from pvnet.datamodule import PVNetDataModule
 from pvnet.models import LateFusionModel
-
-
 
 _top_test_directory = os.path.dirname(os.path.realpath(__file__))
 
@@ -317,7 +311,6 @@ def late_fusion_model(late_fusion_model_kwargs) -> LateFusionModel:
 def raw_late_fusion_model_kwargs_generation_history(model_minutes_kwargs) -> dict:
     return dict(
         # Set inputs to None/False apart from generation history
-        target_key="generation",
         sat_encoder=None,
         nwp_encoders_dict=None,
         add_image_embedding_channel=False,

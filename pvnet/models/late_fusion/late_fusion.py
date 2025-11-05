@@ -55,7 +55,6 @@ class LateFusionModel(BaseModel):
         nwp_forecast_minutes: DictConfig | None = None,
         nwp_history_minutes: DictConfig | None = None,
         pv_history_minutes: int | None = None,
-        target_key: str = "generation",
         interval_minutes: int = 30,
         nwp_interval_minutes: DictConfig | None = None,
         pv_interval_minutes: int = 5,
@@ -102,7 +101,6 @@ class LateFusionModel(BaseModel):
                 `history_minutes` if not provided.
             pv_history_minutes: Length of recent site-level PV data used as
                 input. Defaults to `history_minutes` if not provided.
-            target_key: The key of the target variable in the batch.
             interval_minutes: The interval between each sample of the target data
             nwp_interval_minutes: Dictionary of the intervals between each sample of the NWP
                 data for each source
@@ -113,7 +111,6 @@ class LateFusionModel(BaseModel):
             history_minutes=history_minutes,
             forecast_minutes=forecast_minutes,
             output_quantiles=output_quantiles,
-            target_key=target_key,
             interval_minutes=interval_minutes,
         )
 
@@ -221,8 +218,7 @@ class LateFusionModel(BaseModel):
 
             self.pv_encoder = pv_encoder(
                 sequence_length=pv_history_minutes // pv_interval_minutes + 1,
-                target_key_to_use=self._target_key,
-                key_to_use="generation",
+                key_to_use=self._target_key,
             )
 
             # Update num features
@@ -305,15 +301,15 @@ class LateFusionModel(BaseModel):
         # *********************** Generation Data *************************************
         # Add generation yield history
         if self.include_generation_yield_history:
-            generation_history = x["generation"][:, : self.history_len + 1].float()
+            generation_history = x[self._target_key][:, : self.history_len + 1].float()
             generation_history = generation_history.reshape(generation_history.shape[0], -1)
-            modes["generation"] = generation_history
+            modes[self._target_key] = generation_history
 
         # Add location-level yield history through PV encoder
         if self.include_pv:
             x_tmp = x.copy()
-            x_tmp["generation"] = x_tmp["generation"][:, : self.history_len + 1]
-            modes["generation"] = self.pv_encoder(x_tmp)
+            x_tmp[self._target_key] = x_tmp[self._target_key][:, : self.history_len + 1]
+            modes[self._target_key] = self.pv_encoder(x_tmp)
 
         # ********************** Embedding of location ID ********************
         if self.use_id_embedding:
