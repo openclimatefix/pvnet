@@ -82,6 +82,7 @@ class PVNetLightningModule(pl.LightningModule):
     def _calculate_nll(self, y_gmm, y_true):
         """
         Negative log-likelihood of y_true under the predicted GMM.
+
         Args:
             y_gmm:   (batch, forecast_len * num_components * 3)
             y_true:  (batch, forecast_len)

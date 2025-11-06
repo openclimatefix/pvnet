@@ -447,6 +447,7 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
 
     def _adapt_batch(self, batch: TensorBatch) -> TensorBatch:
         """Slice batches into appropriate shapes for model.
+
         Returns a new batch dictionary with adapted data, leaving the original batch unchanged.
         We make some specific assumptions about the original batch and the derived sliced batch:
         - We are only limiting the future projections. I.e. we are never shrinking the batch from
@@ -509,7 +510,9 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
     def _parse_gmm_params(self, y_gmm):
         """
         Reshape flat output into (μ, σ, π) tensors.
+
         y_gmm: (batch, forecast_len * num_components * 3)
+
         Returns:
             mus:    (batch, forecast_len, num_components)
             sigmas: (batch, forecast_len, num_components)
@@ -554,6 +557,7 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
     def _gmm_to_prediction(self, y_gmm):
         """
         Return the **mixture mean** E[Y] = Σ_k π_k μ_k as a point forecast.
+
         Note!
         • This is the mean of the Gaussian mixture, not the median.
         Quantile/MAE training targets the median.
@@ -570,6 +574,7 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
     def _sample_from_gmm(self, mus, sigmas, pis, n_samples=20):
         """
         Sample from Gaussian Mixture Model for each timestep and batch.
+
         Args:
             mus:    [batch, horizon, components]
             sigmas: [batch, horizon, components]
