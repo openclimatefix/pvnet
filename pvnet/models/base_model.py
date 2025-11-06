@@ -395,7 +395,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         self,
         history_minutes: int,
         forecast_minutes: int,
-        output_quantiles: list[float] | None = None,
         output_quantiles: Optional[list[float]] = None,
         num_gmm_components: Optional[int] = None,
         target_key: str = "gsp",
