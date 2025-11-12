@@ -20,12 +20,12 @@ from pvnet.utils import DATA_CONFIG_NAME, MODEL_CARD_NAME, MODEL_CONFIG_NAME, PY
 # USER SETTINGS
 
 # The huggingface commit of the model you want to update
-repo_id: str = "openclimatefix-models/pvnet_uk_region_day_ahead"
-revision: str = "ace3469f6fb6db7356afe401c1aaf1a78505f4f7"
+repo_id: str = "openclimatefix/pvnet_uk_region"
+revision: str = "6feaa986a6bed3cc6c7961c6bf9e92fb15acca6a"
 
 # The local directory which will be downloaded to
 # If set to None a temporary directory will be used
-local_dir: str | None = "/home/sukhil/ocf-code/pvnet_new/scripts/test_migration"
+local_dir: str | None = None
 
 # Whether to upload the migrated model back to the huggingface - else just saved locally
 upload: bool = False
@@ -71,7 +71,7 @@ if "save_validation_results_csv" in model_config:
 if "adapt_batches" in model_config:
     del model_config["adapt_batches"]
 
-# This parameter has been removed, TODO check defaults and what logic will be needed
+# This parameter has been removed
 if "target_key" in model_config:
     if model_config["target_key"] == "site":
         if "include_site_yield_history" in model_config:
@@ -86,7 +86,8 @@ if "target_key" in model_config:
     del model_config["target_key"]
 
 if "include_gsp_yield_history" in model_config:
-    # Set to false on all current models and now defaults to false so can be removed
+    # Set to false on all current gsp models and now defaults to false
+    # Also false for all site models so can be removed
     del model_config["include_gsp_yield_history"]
 
 # Rename the top level model
