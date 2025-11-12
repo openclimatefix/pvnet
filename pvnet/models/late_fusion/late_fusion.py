@@ -28,8 +28,8 @@ class LateFusionModel(BaseModel):
     - NWP, if included, is put through a similar encoder.
     - PV site-level data, if included, is put through an encoder which transforms it from 2D, with
         time and system-ID dimensions, to become a 1D feature vector.
-    - The satellite features*, NWP features*, PV site-level features*, location ID embedding*, and sun
-        paramters* are concatenated into a 1D feature vector and passed through another neural
+    - The satellite features*, NWP features*, PV site-level features*, location ID embedding*, and
+        sun paramters* are concatenated into a 1D feature vector and passed through another neural
         network to combine them and produce a forecast.
 
     * if included
