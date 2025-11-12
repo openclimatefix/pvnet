@@ -2,6 +2,7 @@
 
 This script can be used to update models from version >= v4.1
 """
+
 import datetime
 import os
 import tempfile
@@ -19,12 +20,12 @@ from pvnet.utils import DATA_CONFIG_NAME, MODEL_CARD_NAME, MODEL_CONFIG_NAME, PY
 # USER SETTINGS
 
 # The huggingface commit of the model you want to update
-repo_id: str = "openclimatefix/pvnet_uk_region"
-revision: str = "6feaa986a6bed3cc6c7961c6bf9e92fb15acca6a"
+repo_id: str = "openclimatefix-models/pvnet_uk_region_day_ahead"
+revision: str = "ace3469f6fb6db7356afe401c1aaf1a78505f4f7"
 
 # The local directory which will be downloaded to
-# If set to None a temporary directory will be used
-local_dir: str | None = None 
+# If set to None a temporary directory will be used
+local_dir: str | None = "/home/sukhil/ocf-code/pvnet_new/scripts/test_migration"
 
 # Whether to upload the migrated model back to the huggingface - else just saved locally
 upload: bool = False
@@ -66,12 +67,30 @@ if "optimizer" in model_config:
 if "save_validation_results_csv" in model_config:
     del model_config["save_validation_results_csv"]
 
-# This parameter has removed
+# This parameter has been removed
 if "adapt_batches" in model_config:
     del model_config["adapt_batches"]
 
+# This parameter has been removed, TODO check defaults and what logic will be needed
+if "target_key" in model_config:
+    if model_config["target_key"] == "site":
+        if "include_site_yield_history" in model_config:
+            model_config["include_generation_yield_history"] = model_config.pop(
+                "include_site_yield_history"
+            )
+
+    if model_config["target_key"] == "gsp" or not model_config["target_key"]:
+        if "include_site_yield_history" in model_config:
+            del model_config["include_site_yield_history"]
+
+    del model_config["target_key"]
+
+if "include_gsp_yield_history" in model_config:
+    # Set to false on all current models and now defaults to false so can be removed
+    del model_config["include_gsp_yield_history"]
+
 # Rename the top level model
-if model_config["_target_"]=="pvnet.models.multimodal.multimodal.Model":
+if model_config["_target_"] == "pvnet.models.multimodal.multimodal.Model":
     model_config["_target_"] = "pvnet.models.LateFusionModel"
 elif model_config["_target_"] == "pvnet.models.LateFusionModel":
     pass
@@ -83,22 +102,46 @@ if model_config.get("nwp_encoders_dict", None) is not None:
     for k, v in model_config["nwp_encoders_dict"].items():
         v["_target_"] = (
             v["_target_"]
-                .replace("multimodal", "late_fusion")
-                .replace("ResConv3DNet2", "ResConv3DNet")
+            .replace("multimodal", "late_fusion")
+            .replace("ResConv3DNet2", "ResConv3DNet")
         )
-        
+
 
 for component in ["sat_encoder", "pv_encoder", "output_network"]:
     if model_config.get(component, None) is not None:
         model_config[component]["_target_"] = (
             model_config[component]["_target_"]
-                .replace("multimodal", "late_fusion")
-                .replace("ResConv3DNet2", "ResConv3DNet")
-                .replace("ResFCNet2", "ResFCNet")
+            .replace("multimodal", "late_fusion")
+            .replace("ResConv3DNet2", "ResConv3DNet")
+            .replace("ResFCNet2", "ResFCNet")
         )
-    
+
 with open(f"{save_dir}/{MODEL_CONFIG_NAME}", "w") as f:
     yaml.dump(model_config, f, sort_keys=False, default_flow_style=False)
+
+# Modify the data config
+with open(f"{save_dir}/{DATA_CONFIG_NAME}") as cfg:
+    data_config = yaml.load(cfg, Loader=yaml.FullLoader)
+
+# Reformat gsp/site generation input data config to new format
+if "gsp" in data_config["input_data"]:
+    data_config["input_data"]["generation"] = data_config["input_data"].pop("gsp")
+
+    if "boundaries_version" in data_config["input_data"]["generation"]:
+        del data_config["input_data"]["generation"]["boundaries_version"]
+
+if "site" in data_config["input_data"]:
+    data_config["input_data"]["generation"] = data_config["input_data"].pop("site")
+
+    data_config["input_data"]["generation"]["zarr_path"] = data_config["input_data"][
+        "generation"
+    ].pop("file_path")
+
+    if "metadata_file_path" in data_config["input_data"]["generation"]:
+        del data_config["input_data"]["generation"]["metadata_file_path"]
+
+with open(f"{save_dir}/{DATA_CONFIG_NAME}", "w") as f:
+    yaml.dump(data_config, f, sort_keys=False, default_flow_style=False)
 
 # Resave the model weights as safetensors if in old format
 if os.path.exists(f"{save_dir}/pytorch_model.bin"):
@@ -136,16 +179,14 @@ if upload:
         # Stage modified files for upload
         operations.append(
             CommitOperationAdd(
-                path_in_repo=file, # Name of the file in the repo
-                path_or_fileobj=f"{save_dir}/{file}", # Local path to the file
+                path_in_repo=file,  # Name of the file in the repo
+                path_or_fileobj=f"{save_dir}/{file}",  # Local path to the file
             ),
         )
 
     # Remove old pytorch weights file if it exists in the most recent commit
     if file_exists(repo_id, "pytorch_model.bin"):
-        operations.append(
-            CommitOperationDelete(path_in_repo="pytorch_model.bin")
-        )
+        operations.append(CommitOperationDelete(path_in_repo="pytorch_model.bin"))
 
     commit_info = api.create_commit(
         repo_id=repo_id,
