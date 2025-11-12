@@ -1,6 +1,4 @@
-"""Encoder modules for the site-level PV data.
-
-"""
+"""Encoder modules for the site-level PV data."""
 
 import einops
 import torch
@@ -218,7 +216,6 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
         return site_seqs, batch_size
 
     def _encode_query(self, x: TensorBatch) -> torch.Tensor:
-        # GSP seems to have a different structure
         ids = x["location_id"].int()
         query = self.target_id_embedding(ids).unsqueeze(1)
         return query
@@ -254,9 +251,8 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
         return value
 
     def _attention_forward(
-        self, x: dict, 
-        average_attn_weights: bool = True
-    ) -> tuple[torch.Tensor, torch.Tensor:]:
+        self, x: dict, average_attn_weights: bool = True
+    ) -> tuple[torch.Tensor, torch.Tensor :]:
         query = self._encode_query(x)
         key = self._encode_key(x)
         value = self._encode_value(x)

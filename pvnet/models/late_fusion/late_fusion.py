@@ -28,7 +28,7 @@ class LateFusionModel(BaseModel):
     - NWP, if included, is put through a similar encoder.
     - PV site-level data, if included, is put through an encoder which transforms it from 2D, with
         time and system-ID dimensions, to become a 1D feature vector.
-    - The satellite features*, NWP features*, PV site-level features*, GSP ID embedding*, and sun
+    - The satellite features*, NWP features*, PV site-level features*, location ID embedding*, and sun
         paramters* are concatenated into a 1D feature vector and passed through another neural
         network to combine them and produce a forecast.
 
@@ -81,14 +81,13 @@ class LateFusionModel(BaseModel):
             pv_encoder: A partially instantiated pytorch Module class used to encode the site-level
                 PV data from 2D into a 1D feature vector.
             add_image_embedding_channel: Add a channel to the NWP and satellite data with the
-                embedding of the GSP ID.
-            include_generation_yield_history: Include GSP yield data.
+                embedding of the location ID.
             include_generation_yield_history: Include generation yield data.
             include_sun: Include sun azimuth and altitude data.
             include_time: Include sine and cosine of dates and times.
             location_id_mapping: A dictionary mapping the location ID to an integer. ID embedding is
                 not used if this is not provided.
-            embedding_dim: Number of embedding dimensions to use for GSP ID.
+            embedding_dim: Number of embedding dimensions to use for location ID.
             forecast_minutes: The amount of minutes that should be forecasted.
             history_minutes: The default amount of historical minutes that are used.
             sat_history_minutes: Length of recent observations used for satellite inputs. Defaults
@@ -128,8 +127,7 @@ class LateFusionModel(BaseModel):
 
         if self.location_id_mapping is None:
             logger.warning(
-                "location_id_mapping` is not provided, defaulting to outdated GSP mapping"
-                "(0 to 317)"
+                "location_id_mapping` is not provided, defaulting to outdated GSP mapping(0 to 317)"
             )
 
             # Note 318 is the 2024 UK GSP count, so this is a temporary fix
@@ -232,8 +230,7 @@ class LateFusionModel(BaseModel):
 
         if self.include_sun:
             self.sun_fc1 = nn.Linear(
-                in_features=2
-                * (self.forecast_len + self.history_len + 1),
+                in_features=2 * (self.forecast_len + self.history_len + 1),
                 out_features=16,
             )
 
@@ -242,8 +239,7 @@ class LateFusionModel(BaseModel):
 
         if self.include_time:
             self.time_fc1 = nn.Linear(
-                in_features=4
-                * (self.forecast_len + self.history_len + 1),
+                in_features=4 * (self.forecast_len + self.history_len + 1),
                 out_features=32,
             )
 
@@ -259,12 +255,11 @@ class LateFusionModel(BaseModel):
             out_features=self.num_output_features,
         )
 
-
     def forward(self, x: TensorBatch) -> torch.Tensor:
         """Run model forward"""
 
         if self.use_id_embedding:
-            # eg: x['gsp_id'] = [1] with location_id_mapping = {1:0}, would give [0]
+            # eg: x['location_id'] = [1] with location_id_mapping = {1:0}, would give [0]
             id = torch.tensor(
                 [self.location_id_mapping[i.item()] for i in x["location_id"]],
                 device=x["location_id"].device,
@@ -319,7 +314,7 @@ class LateFusionModel(BaseModel):
             sun = torch.cat((x["solar_azimuth"], x["solar_elevation"]), dim=1).float()
             sun = self.sun_fc1(sun)
             modes["sun"] = sun
-        
+
         if self.include_time:
             time = [x[k] for k in ["date_sin", "date_cos", "time_sin", "time_cos"]]
             time = torch.cat(time, dim=1).float()
