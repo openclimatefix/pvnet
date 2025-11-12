@@ -335,13 +335,13 @@ def raw_late_fusion_model_kwargs_generation_history(model_minutes_kwargs) -> dic
 
 
 @pytest.fixture()
-def late_fusion_model_kwargs_site_history(raw_late_fusion_model_kwargs_generation_history) -> dict:
+def late_fusion_model_kwargs_generation_history(raw_late_fusion_model_kwargs_generation_history) -> dict:
     return hydra.utils.instantiate(raw_late_fusion_model_kwargs_generation_history)
 
 
 @pytest.fixture()
-def late_fusion_model_generation_history(late_fusion_model_kwargs_site_history) -> LateFusionModel:
-    return LateFusionModel(**late_fusion_model_kwargs_site_history)
+def late_fusion_model_generation_history(late_fusion_model_kwargs_generation_history) -> LateFusionModel:
+    return LateFusionModel(**late_fusion_model_kwargs_generation_history)
 
 
 @pytest.fixture()

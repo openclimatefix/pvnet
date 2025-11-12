@@ -4,7 +4,7 @@ def test_model_forward(late_fusion_model, batch):
     # Check output is the correct shape: [batch size=2, forecast_len=16]
     assert tuple(y.shape) == (2, 16), y.shape
 
-def test_model_forward_site_history(late_fusion_model_generation_history, batch):
+def test_model_forward_generation_history(late_fusion_model_generation_history, batch):
 
     y = late_fusion_model_generation_history(batch)
 
