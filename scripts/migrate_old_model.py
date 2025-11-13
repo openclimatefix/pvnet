@@ -20,8 +20,8 @@ from pvnet.utils import DATA_CONFIG_NAME, MODEL_CARD_NAME, MODEL_CONFIG_NAME, PY
 # USER SETTINGS
 
 # The huggingface commit of the model you want to update
-repo_id: str = "openclimatefix/pvnet_uk_region"
-revision: str = "6feaa986a6bed3cc6c7961c6bf9e92fb15acca6a"
+repo_id: str = "openclimatefix-models/pvnet_uk_region"
+revision: str = "30c406ea8455d9d43aa1284cba23c3a59102f549"
 
 # The local directory which will be downloaded to
 # If set to None a temporary directory will be used
