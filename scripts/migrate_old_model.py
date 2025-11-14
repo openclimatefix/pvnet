@@ -75,7 +75,7 @@ if "adapt_batches" in model_config:
 if "target_key" in model_config:
     if model_config["target_key"] == "site":
         if "include_site_yield_history" in model_config:
-            model_config["include_generation_yield_history"] = model_config.pop(
+            model_config["include_generation_history"] = model_config.pop(
                 "include_site_yield_history"
             )
 

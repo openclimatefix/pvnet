@@ -87,7 +87,7 @@ def build_lit_late_fusion_cfg(
             "embedding_dim": None,
             "include_sun": False,
             "include_time": include_time,
-            "include_generation_yield_history": True,
+            "include_generation_history": True,
             "forecast_minutes": forecast_minutes,
             "history_minutes": history_minutes,
             "interval_minutes": interval_minutes,

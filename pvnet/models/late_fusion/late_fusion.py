@@ -43,7 +43,7 @@ class LateFusionModel(BaseModel):
         sat_encoder: AbstractNWPSatelliteEncoder | None = None,
         pv_encoder: AbstractSitesEncoder | None = None,
         add_image_embedding_channel: bool = False,
-        include_generation_yield_history: bool = False,
+        include_generation_history: bool = False,
         include_sun: bool = True,
         include_time: bool = False,
         location_id_mapping: dict[Any, int] | None = None,
@@ -82,7 +82,7 @@ class LateFusionModel(BaseModel):
                 PV data from 2D into a 1D feature vector.
             add_image_embedding_channel: Add a channel to the NWP and satellite data with the
                 embedding of the location ID.
-            include_generation_yield_history: Include generation yield data.
+            include_generation_history: Include generation yield data.
             include_sun: Include sun azimuth and altitude data.
             include_time: Include sine and cosine of dates and times.
             location_id_mapping: A dictionary mapping the location ID to an integer. ID embedding is
@@ -113,7 +113,7 @@ class LateFusionModel(BaseModel):
             interval_minutes=interval_minutes,
         )
 
-        self.include_generation_yield_history = include_generation_yield_history
+        self.include_generation_history = include_generation_history
         self.include_sat = sat_encoder is not None
         self.include_nwp = nwp_encoders_dict is not None and len(nwp_encoders_dict) != 0
         self.include_pv = pv_encoder is not None
@@ -246,7 +246,7 @@ class LateFusionModel(BaseModel):
             # Update num features
             fusion_input_features += 32
 
-        if include_generation_yield_history:
+        if include_generation_history:
             # Update num features
             fusion_input_features += self.history_len + 1
 
@@ -295,7 +295,7 @@ class LateFusionModel(BaseModel):
 
         # *********************** Generation Data *************************************
         # Add generation yield history
-        if self.include_generation_yield_history:
+        if self.include_generation_history:
             generation_history = x[self._target_key][:, : self.history_len + 1].float()
             generation_history = generation_history.reshape(generation_history.shape[0], -1)
             modes[self._target_key] = generation_history
