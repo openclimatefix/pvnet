@@ -26,7 +26,6 @@ class Ensemble(BaseModel):
         output_quantiles = []
         history_minutes = []
         forecast_minutes = []
-        target_key = []
         interval_minutes = []
 
         # Get some model properties from each model
@@ -34,7 +33,6 @@ class Ensemble(BaseModel):
             output_quantiles.append(model.output_quantiles)
             history_minutes.append(model.history_minutes)
             forecast_minutes.append(model.forecast_minutes)
-            target_key.append(model._target_key)
             interval_minutes.append(model.interval_minutes)
 
         # Check these properties are all the same
@@ -42,7 +40,6 @@ class Ensemble(BaseModel):
             output_quantiles,
             history_minutes,
             forecast_minutes,
-            target_key,
             interval_minutes,
         ]:
             assert all([p == param_list[0] for p in param_list]), param_list
@@ -51,7 +48,6 @@ class Ensemble(BaseModel):
             history_minutes=history_minutes[0],
             forecast_minutes=forecast_minutes[0],
             output_quantiles=output_quantiles[0],
-            target_key=target_key[0],
             interval_minutes=interval_minutes[0],
         )
 

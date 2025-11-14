@@ -140,7 +140,7 @@ def validate_batch_against_config(
             actual_shape = tuple(batch['satellite_actual'].shape)
             raise ValueError(f"Satellite shape mismatch: expected {expected}, got {actual_shape}")
 
-    # GSP/Site validation
+    # generation validation
     key = model._target_key
     if key in batch:
         total_minutes = model.history_minutes + model.forecast_minutes

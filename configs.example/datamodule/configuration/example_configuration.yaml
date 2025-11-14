@@ -4,20 +4,7 @@ general:
 
 input_data:
 
-  # Either use Site OR GSP configuration
-  site:
-    # Path to Site data in NetCDF format
-    file_path: PLACEHOLDER.nc
-    # Path to metadata in CSV format
-    metadata_file_path: PLACEHOLDER.csv
-    time_resolution_minutes: 15
-    interval_start_minutes: -60
-    # Specified for intraday currently
-    interval_end_minutes: 480
-    dropout_timedeltas_minutes: []
-    dropout_fraction: 0 # Fraction of samples with dropout
-
-  gsp:
+  generation:
     # Path to GSP data in zarr format
     # e.g. gs://solar-pv-nowcasting-data/PV/GSP/v7/pv_gsp.zarr
     zarr_path: PLACEHOLDER.zarr
