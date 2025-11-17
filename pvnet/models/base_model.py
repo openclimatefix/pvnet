@@ -411,9 +411,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         """
         super().__init__()
 
-        # The key of the target variable in the batch
-        self._target_key = "generation"
-
         self.history_minutes = history_minutes
         self.forecast_minutes = forecast_minutes
         self.output_quantiles = output_quantiles

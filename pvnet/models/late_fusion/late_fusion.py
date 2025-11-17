@@ -216,7 +216,7 @@ class LateFusionModel(BaseModel):
 
             self.pv_encoder = pv_encoder(
                 sequence_length=pv_history_minutes // pv_interval_minutes + 1,
-                key_to_use=self._target_key,
+                key_to_use="generation",
             )
 
             # Update num features
@@ -296,15 +296,15 @@ class LateFusionModel(BaseModel):
         # *********************** Generation Data *************************************
         # Add generation yield history
         if self.include_generation_history:
-            generation_history = x[self._target_key][:, : self.history_len + 1].float()
+            generation_history = x["generation"][:, : self.history_len + 1].float()
             generation_history = generation_history.reshape(generation_history.shape[0], -1)
-            modes[self._target_key] = generation_history
+            modes["generation"] = generation_history
 
         # Add location-level yield history through PV encoder
         if self.include_pv:
             x_tmp = x.copy()
-            x_tmp[self._target_key] = x_tmp[self._target_key][:, : self.history_len + 1]
-            modes[self._target_key] = self.pv_encoder(x_tmp)
+            x_tmp["generation"] = x_tmp["generation"][:, : self.history_len + 1]
+            modes["generation"] = self.pv_encoder(x_tmp)
 
         # ********************** Embedding of location ID ********************
         if self.use_id_embedding:
