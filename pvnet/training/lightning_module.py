@@ -45,9 +45,9 @@ class PVNetLightningModule(pl.LightningModule):
         self.lr = None
 
     def transfer_batch_to_device(
-        self, 
-        batch: TensorBatch, 
-        device: torch.device, 
+        self,
+        batch: TensorBatch,
+        device: torch.device,
         dataloader_idx: int,
     ) -> dict:
         """Method to move custom batches to a given device"""
@@ -75,7 +75,7 @@ class PVNetLightningModule(pl.LightningModule):
         losses = 2 * torch.cat(losses, dim=2)
 
         return losses.mean()
-    
+
     def configure_optimizers(self):
         """Configure the optimizers using learning rate found with LR finder if used"""
         if self.lr is not None:
@@ -84,7 +84,7 @@ class PVNetLightningModule(pl.LightningModule):
         return self._optimizer(self.model)
 
     def _calculate_common_losses(
-        self, 
+        self,
         y: torch.Tensor,
         y_hat: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
@@ -96,15 +96,15 @@ class PVNetLightningModule(pl.LightningModule):
             losses["quantile_loss"] = self._calculate_quantile_loss(y_hat, y)
             y_hat = self.model._quantiles_to_prediction(y_hat)
 
-        losses.update({"MSE":  F.mse_loss(y_hat, y), "MAE": F.l1_loss(y_hat, y)})
+        losses.update({"MSE": F.mse_loss(y_hat, y), "MAE": F.l1_loss(y_hat, y)})
 
         return losses
-    
+
     def training_step(self, batch: TensorBatch, batch_idx: int) -> torch.Tensor:
         """Run training step"""
         y_hat = self.model(batch)
 
-        y = batch[self.model._target_key][:, -self.model.forecast_len :]
+        y = batch["generation"][:, -self.model.forecast_len :]
 
         losses = self._calculate_common_losses(y, y_hat)
         losses = {f"{k}/train": v for k, v in losses.items()}
@@ -116,10 +116,10 @@ class PVNetLightningModule(pl.LightningModule):
         else:
             opt_target = losses["MAE/train"]
         return opt_target
-    
+
     def _calculate_val_losses(
-        self, 
-        y: torch.Tensor, 
+        self,
+        y: torch.Tensor,
         y_hat: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
         """Calculate additional losses only run in validation"""
@@ -138,28 +138,25 @@ class PVNetLightningModule(pl.LightningModule):
         return losses
 
     def _calculate_step_metrics(
-        self, 
-        y: torch.Tensor, 
-        y_hat: torch.Tensor, 
+        self,
+        y: torch.Tensor,
+        y_hat: torch.Tensor,
     ) -> tuple[np.array, np.array]:
         """Calculate the MAE and MSE at each forecast step"""
 
         mae_each_step = torch.mean(torch.abs(y_hat - y), dim=0).cpu().numpy()
         mse_each_step = torch.mean((y_hat - y) ** 2, dim=0).cpu().numpy()
-       
+
         return mae_each_step, mse_each_step
-    
+
     def _store_val_predictions(self, batch: TensorBatch, y_hat: torch.Tensor) -> None:
         """Internally store the validation predictions"""
-        
-        target_key = self.model._target_key
 
-        y = batch[target_key][:, -self.model.forecast_len :].cpu().numpy()
-        y_hat = y_hat.cpu().numpy() 
-        ids = batch[f"{target_key}_id"].cpu().numpy()
+        y = batch["generation"][:, -self.model.forecast_len :].cpu().numpy()
+        y_hat = y_hat.cpu().numpy()
+        ids = batch["location_id"].cpu().numpy()
         init_times_utc = pd.to_datetime(
-            batch[f"{target_key}_time_utc"][:, self.model.history_len+1]
-            .cpu().numpy().astype("datetime64[ns]")
+            batch["time_utc"][:, self.model.history_len + 1].cpu().numpy().astype("datetime64[ns]")
         )
 
         if self.model.use_quantile_regression:
@@ -170,7 +167,7 @@ class PVNetLightningModule(pl.LightningModule):
 
         ds_preds_batch = xr.Dataset(
             data_vars=dict(
-                y_hat=(["sample_num", "forecast_step",  "p_level"], y_hat),
+                y_hat=(["sample_num", "forecast_step", "p_level"], y_hat),
                 y=(["sample_num", "forecast_step"], y),
             ),
             coords=dict(
@@ -186,7 +183,7 @@ class PVNetLightningModule(pl.LightningModule):
         # Set up stores which we will fill during validation
         self.all_val_results: list[xr.Dataset] = []
         self._val_horizon_maes: list[np.array] = []
-        if self.current_epoch==0:
+        if self.current_epoch == 0:
             self._val_persistence_horizon_maes: list[np.array] = []
 
         # Plot some sample forecasts
@@ -197,9 +194,9 @@ class PVNetLightningModule(pl.LightningModule):
 
         for plot_num in range(num_figures):
             idxs = np.arange(plots_per_figure) + plot_num * plots_per_figure
-            idxs = idxs[idxs<len(val_dataset)]
+            idxs = idxs[idxs < len(val_dataset)]
 
-            if len(idxs)==0:
+            if len(idxs) == 0:
                 continue
 
             batch = collate_fn([val_dataset[i] for i in idxs])
@@ -207,19 +204,16 @@ class PVNetLightningModule(pl.LightningModule):
 
             # Batch validation check only during sanity check phase - use first batch
             if self.trainer.sanity_checking and plot_num == 0:
-                validate_batch_against_config(
-                    batch=batch,
-                    model=self.model
-                )
-            
+                validate_batch_against_config(batch=batch, model=self.model)
+
             with torch.no_grad():
                 y_hat = self.model(batch)
-            
+
             fig = plot_sample_forecasts(
                 batch,
                 y_hat,
                 quantiles=self.model.output_quantiles,
-                key_to_plot=self.model._target_key,
+                key_to_plot="generation",
             )
 
             plot_name = f"val_forecast_samples/sample_set_{plot_num}"
@@ -238,7 +232,7 @@ class PVNetLightningModule(pl.LightningModule):
         # Internally store the val predictions
         self._store_val_predictions(batch, y_hat)
 
-        y = batch[self.model._target_key][:, -self.model.forecast_len :]
+        y = batch["generation"][:, -self.model.forecast_len :]
 
         losses = self._calculate_common_losses(y, y_hat)
         losses = {f"{k}/val": v for k, v in losses.items()}
@@ -262,21 +256,22 @@ class PVNetLightningModule(pl.LightningModule):
 
         # Calculate the persistance losses - we only need to do this once per training run
         # not every epoch
-        if self.current_epoch==0:
+        if self.current_epoch == 0:
             y_persist = (
-                batch[self.model._target_key][:, -(self.model.forecast_len+1)]
-                .unsqueeze(1).expand(-1, self.model.forecast_len)
+                batch["generation"][:, -(self.model.forecast_len + 1)]
+                .unsqueeze(1)
+                .expand(-1, self.model.forecast_len)
             )
             mae_step_persist, mse_step_persist = self._calculate_step_metrics(y, y_persist)
             self._val_persistence_horizon_maes.append(mae_step_persist)
             losses.update(
                 {
-                    "MAE/val_persistence": mae_step_persist.mean(), 
-                    "MSE/val_persistence": mse_step_persist.mean()
+                    "MAE/val_persistence": mae_step_persist.mean(),
+                    "MSE/val_persistence": mse_step_persist.mean(),
                 }
             )
 
-        # Log the metrics
+        # Log the metrics
         self.log_dict(losses, on_step=False, on_epoch=True)
 
     def on_validation_epoch_end(self) -> None:
@@ -289,7 +284,7 @@ class PVNetLightningModule(pl.LightningModule):
         self._val_horizon_maes = []
 
         # We only run this on the first epoch
-        if self.current_epoch==0:
+        if self.current_epoch == 0:
             val_persistence_horizon_maes = np.mean(self._val_persistence_horizon_maes, axis=0)
             self._val_persistence_horizon_maes = []
 
@@ -321,25 +316,25 @@ class PVNetLightningModule(pl.LightningModule):
                 wandb_log_dir = self.logger.experiment.dir
                 filepath = f"{wandb_log_dir}/validation_results.netcdf"
                 ds_val_results.to_netcdf(filepath)
-                
-                # Uplodad to wandb
+
+                # Uplodad to wandb
                 self.logger.experiment.save(filepath, base_path=wandb_log_dir, policy="now")
-            
+
             # Create the horizon accuracy curve
             horizon_mae_plot = wandb_line_plot(
-                x=np.arange(self.model.forecast_len), 
+                x=np.arange(self.model.forecast_len),
                 y=val_horizon_maes,
                 xlabel="Horizon step",
                 ylabel="MAE",
                 title="Val horizon loss curve",
             )
-            
+
             wandb.log({"val_horizon_mae_plot": horizon_mae_plot})
 
             # Create persistence horizon accuracy curve but only on first epoch
-            if self.current_epoch==0:
+            if self.current_epoch == 0:
                 persist_horizon_mae_plot = wandb_line_plot(
-                    x=np.arange(self.model.forecast_len), 
+                    x=np.arange(self.model.forecast_len),
                     y=val_persistence_horizon_maes,
                     xlabel="Horizon step",
                     ylabel="MAE",

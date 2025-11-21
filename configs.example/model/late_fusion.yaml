@@ -68,8 +68,7 @@ model:
 
   embedding_dim: 16
   include_sun: True
-  include_gsp_yield_history: False
-  include_site_yield_history: False
+  include_generation_history: False
 
   # The mapping between the location IDs and their embedding indices
   location_id_mapping:

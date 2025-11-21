@@ -2,23 +2,17 @@ import os
 
 import dask.array
 import hydra
-import pytest
-import pandas as pd
 import numpy as np
-import xarray as xr
+import pandas as pd
+import pytest
 import torch
-
+import xarray as xr
+from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configuration
+from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from omegaconf import OmegaConf
 
-from ocf_data_sampler.torch_datasets.datasets import SitesDataset
-from ocf_data_sampler.numpy_sample.common_types import TensorBatch
-from ocf_data_sampler.config import load_yaml_configuration, save_yaml_configuration
-
-from pvnet.datamodule import collate_fn
-from pvnet.datamodule import  UKRegionalDataModule, SitesDataModule
+from pvnet.datamodule import PVNetDataModule
 from pvnet.models import LateFusionModel
-
-
 
 _top_test_directory = os.path.dirname(os.path.realpath(__file__))
 
@@ -144,112 +138,66 @@ def ecmwf_zarr_path(session_tmp_path) -> str:
 
 
 @pytest.fixture(scope="session")
-def gsp_zarr_path(session_tmp_path) -> str:
-    times = pd.date_range("2023-01-01 00:00", "2023-01-02 00:00", freq="30min")
-    gsp_ids = np.arange(0, 318)
-    capacity = np.ones((len(times), len(gsp_ids)))
-    generation = np.random.uniform(0, 200, size=(len(times), len(gsp_ids))).astype(np.float32)
+def generation_zarr_path(session_tmp_path) -> str:
 
-    coords = (
-        ("datetime_gmt", times),
-        ("gsp_id", gsp_ids),
+    times = pd.date_range("2023-01-01 00:00", "2023-01-02 00:00", freq="30min")
+    location_ids = np.arange(318)
+    # Rough UK bounding box
+    lat_min, lat_max = 49.9, 58.7
+    lon_min, lon_max = -8.6, 1.8
+
+    # Generate random uniform points
+    latitudes = np.random.uniform(lat_min, lat_max, len(location_ids)).astype("float64")
+    longitudes = np.random.uniform(lon_min, lon_max, len(location_ids)).astype("float64")
+
+    capacity = np.ones((len(times), len(location_ids)))
+
+    generation = np.random.uniform(0, 200, (len(times), len(location_ids))).astype(np.float32)
+
+    # Build Dataset
+    ds_uk = xr.Dataset(
+        data_vars={
+            "capacity_mwp": (("time_utc", "location_id"), capacity),
+            "generation_mw": (("time_utc", "location_id"), generation),
+        },
+        coords={
+            "time_utc": times,
+            "location_id": location_ids,
+            "latitude": ("location_id", latitudes),
+            "longitude": ("location_id", longitudes),
+        },
     )
 
-    ds_uk_gsp = xr.Dataset({
-        "capacity_mwp": xr.DataArray(capacity, coords=coords),
-        "installedcapacity_mwp": xr.DataArray(capacity, coords=coords),
-        "generation_mw": xr.DataArray(generation, coords=coords),
-    })
-
-    zarr_path = session_tmp_path / "uk_gsp.zarr"
-    ds_uk_gsp.to_zarr(zarr_path)
+    zarr_path = session_tmp_path / "uk_generation.zarr"
+    ds_uk.to_zarr(zarr_path)
     return zarr_path
 
 
 @pytest.fixture(scope="session")
-def site_data_paths(session_tmp_path) -> tuple[str, str]:
-
-    times = pd.date_range("2023-01-01 00:00", "2023-01-02 00:00", freq="15min")
-    site_ids = np.arange(0, 10)
-
-    capacity = np.ones(len(site_ids))
-    lons = np.linspace(-4, -3, len(site_ids))
-    lats = np.linspace(51, 52, len(site_ids))
-
-    coords = (("time_utc", times), ("site_id", site_ids))
-
-    generation_data = np.random.uniform(
-        low=0, 
-        high=200, 
-        size=tuple(len(coord_values) for _, coord_values in coords)
-    ).astype(np.float32)
-
-    ds_gen = xr.DataArray(generation_data, coords=coords).to_dataset(name="generation_kw")
-
-    df_meta = pd.DataFrame(
-        {
-            "site_id": site_ids,
-            "capacity_kwp": capacity,
-            "longitude": lons,
-            "latitude": lats,
-        }
-    )
-
-    generation_data_path = session_tmp_path / f"sites_data.netcdf"
-    metadata_path = session_tmp_path / f"sites_metadata.csv"
-    ds_gen.to_netcdf(generation_data_path)
-    df_meta.to_csv(metadata_path, index=False)
-
-    return generation_data_path, metadata_path
-
-
-@pytest.fixture(scope="session")
-def uk_data_config_path(
+def data_config_path(
     session_tmp_path, 
     sat_zarr_path, 
     ukv_zarr_path, 
     ecmwf_zarr_path, 
-    gsp_zarr_path
+    generation_zarr_path
 ) -> str:  
     
     # Populate the config with the generated zarr paths
-    config = load_yaml_configuration(f"{_top_test_directory}/test_data/uk_data_config.yaml")
+    config = load_yaml_configuration(f"{_top_test_directory}/test_data/data_config.yaml")
     config.input_data.nwp["ukv"].zarr_path = str(ukv_zarr_path)
     config.input_data.nwp["ecmwf"].zarr_path = str(ecmwf_zarr_path)
     config.input_data.satellite.zarr_path = str(sat_zarr_path)
-    config.input_data.gsp.zarr_path = str(gsp_zarr_path)
+    config.input_data.generation.zarr_path = str(generation_zarr_path)
 
-    filename = f"{session_tmp_path}/uk_data_config.yaml"
+    filename = f"{session_tmp_path}/data_config.yaml"
     save_yaml_configuration(config, filename)
     return filename
 
 
 @pytest.fixture(scope="session")
-def site_data_config_path(
-    session_tmp_path, 
-    sat_zarr_path, 
-    ukv_zarr_path, 
-    ecmwf_zarr_path, 
-    site_data_paths,
-) -> str:  
-    
-    # Populate the config with the generated zarr paths
-    config = load_yaml_configuration(f"{_top_test_directory}/test_data/site_data_config.yaml")
-    config.input_data.nwp["ukv"].zarr_path = str(ukv_zarr_path)
-    config.input_data.nwp["ecmwf"].zarr_path = str(ecmwf_zarr_path)
-    config.input_data.satellite.zarr_path = str(sat_zarr_path)
-    config.input_data.site.file_path = str(site_data_paths[0])
-    config.input_data.site.metadata_file_path = str(site_data_paths[1])
-
-    filename = f"{session_tmp_path}/site_data_config.yaml"
-    save_yaml_configuration(config, filename)
-    return filename
-
-
-@pytest.fixture(scope="session")
-def uk_streamed_datamodule(uk_data_config_path) -> UKRegionalDataModule:
-    dm = UKRegionalDataModule(
-        configuration=uk_data_config_path,
+def streamed_datamodule(data_config_path) -> PVNetDataModule:
+    dm = PVNetDataModule(
+        configuration=data_config_path,
         batch_size=2,
         num_workers=0,
         prefetch_factor=None,
@@ -257,33 +205,14 @@ def uk_streamed_datamodule(uk_data_config_path) -> UKRegionalDataModule:
     dm.setup(stage="fit")
     return dm
 
-
 @pytest.fixture(scope="session")
-def site_streamed_datamodule(site_data_config_path) -> SitesDataModule:
-    dm = SitesDataModule(
-        configuration=site_data_config_path,
-        batch_size=2,
-        num_workers=0,
-        prefetch_factor=None,
-    )
-    dm.setup(stage="fit")
-    return dm
+def batch(streamed_datamodule) -> TensorBatch:
+    return next(iter(streamed_datamodule.train_dataloader()))
 
 
 @pytest.fixture(scope="session")
-def uk_batch(uk_streamed_datamodule) -> TensorBatch:
-    return next(iter(uk_streamed_datamodule.train_dataloader()))
-
-
-@pytest.fixture(scope="session")
-def site_batch(site_data_config_path) -> TensorBatch:
-    dataset = SitesDataset(site_data_config_path)
-    return collate_fn([dataset[i] for i in range(2)])
-
-
-@pytest.fixture(scope="session")
-def satellite_batch_component(uk_batch) -> torch.Tensor:
-    return torch.swapaxes(uk_batch["satellite_actual"], 1, 2).float()
+def satellite_batch_component(batch) -> torch.Tensor:
+    return torch.swapaxes(batch["satellite_actual"], 1, 2).float()
 
 
 @pytest.fixture()
@@ -309,9 +238,8 @@ def site_encoder_model_kwargs() -> dict:
         sequence_length=60 // 15 + 1,
         num_sites=1,
         out_features=128,
-        target_key_to_use="site"
+        key_to_use="generation",
     )
-
 
 @pytest.fixture()
 def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
@@ -359,7 +287,7 @@ def raw_late_fusion_model_kwargs(model_minutes_kwargs) -> dict:
         location_id_mapping={i:i for i in range(1, 318)},
         embedding_dim=16,
         include_sun=True,
-        include_gsp_yield_history=True,
+        include_generation_history=True,
         sat_history_minutes=30,
         nwp_history_minutes={"ukv": 120, "ecmwf": 120},
         nwp_forecast_minutes={"ukv": 480, "ecmwf": 480},
@@ -380,10 +308,9 @@ def late_fusion_model(late_fusion_model_kwargs) -> LateFusionModel:
 
 
 @pytest.fixture()
-def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs) -> dict:
+def raw_late_fusion_model_kwargs_generation_history(model_minutes_kwargs) -> dict:
     return dict(
-        # Set inputs to None/False apart from site history
-        target_key="pv",
+        # Set inputs to None/False apart from generation history
         sat_encoder=None,
         nwp_encoders_dict=None,
         add_image_embedding_channel=False,
@@ -400,22 +327,21 @@ def raw_late_fusion_model_kwargs_site_history(model_minutes_kwargs) -> dict:
         embedding_dim=None,
         include_sun=False,
         include_time=True,
-        include_gsp_yield_history=False,
-        include_site_yield_history=True,
+        include_generation_history=True,
         forecast_minutes=480, 
         history_minutes=60,
-        interval_minutes=15,
+        interval_minutes=30,
     )
 
 
 @pytest.fixture()
-def late_fusion_model_kwargs_site_history(raw_late_fusion_model_kwargs_site_history) -> dict:
-    return hydra.utils.instantiate(raw_late_fusion_model_kwargs_site_history)
+def late_fusion_model_kwargs_generation_history(raw_late_fusion_model_kwargs_generation_history) -> dict:
+    return hydra.utils.instantiate(raw_late_fusion_model_kwargs_generation_history)
 
 
 @pytest.fixture()
-def late_fusion_model_site_history(late_fusion_model_kwargs_site_history) -> LateFusionModel:
-    return LateFusionModel(**late_fusion_model_kwargs_site_history)
+def late_fusion_model_generation_history(late_fusion_model_kwargs_generation_history) -> LateFusionModel:
+    return LateFusionModel(**late_fusion_model_kwargs_generation_history)
 
 
 @pytest.fixture()

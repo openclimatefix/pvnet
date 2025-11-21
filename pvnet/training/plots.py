@@ -32,9 +32,9 @@ def plot_sample_forecasts(
 
     y = batch[key_to_plot].cpu().numpy()
     y_hat = y_hat.cpu().numpy()    
-    ids = batch[f"{key_to_plot}_id"].cpu().numpy().squeeze()
+    ids = batch["location_id"].cpu().numpy().squeeze()
     times_utc = pd.to_datetime(
-        batch[f"{key_to_plot}_time_utc"].cpu().numpy().squeeze().astype("datetime64[ns]")
+        batch["time_utc"].cpu().numpy().squeeze().astype("datetime64[ns]")
     )
     batch_size = y.shape[0]
 
