@@ -158,7 +158,7 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
         super().__init__(sequence_length, num_sites, out_features)
         self.sequence_length = sequence_length
         self.target_id_embedding = nn.Embedding(target_id_dim, out_features)
-        self.id_embedding = nn.Embedding(num_sites, id_embed_dim)
+        self.site_id_embedding = nn.Embedding(num_sites, id_embed_dim)
         self._ids = nn.parameter.Parameter(torch.arange(num_sites), requires_grad=False)
         self.use_id_in_value = use_id_in_value
         self.key_to_use = key_to_use
@@ -224,7 +224,7 @@ class SingleAttentionNetwork(AbstractSitesEncoder):
         site_seqs, batch_size = self._encode_inputs(x)
 
         # site ID embeddings are the same for each sample
-        id_embed = torch.tile(self.id_embedding(self._ids), (batch_size, 1, 1))
+        id_embed = torch.tile(self.site_id_embedding(self._ids), (batch_size, 1, 1))
         # Each concated (site sequence, site ID embedding) is processed with encoder
         x_seq_in = torch.cat((site_seqs, id_embed), dim=2).flatten(0, 1)
         key = self._key_encoder(x_seq_in)
