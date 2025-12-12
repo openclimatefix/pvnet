@@ -61,7 +61,6 @@ def ckpt_cfg(wandb_save_dir: str) -> dict:
 
 
 def build_lit_late_fusion_cfg(
-    target_key: str,
     interval_minutes: int,
     include_time: bool,
     forecast_minutes: int = 480,
@@ -72,7 +71,6 @@ def build_lit_late_fusion_cfg(
         "_target_": "pvnet.training.lightning_module.PVNetLightningModule",
         "model": {
             "_target_": "pvnet.models.LateFusionModel",
-            "target_key": target_key,
             "sat_encoder": None,
             "nwp_encoders_dict": None,
             "add_image_embedding_channel": False,
@@ -89,8 +87,7 @@ def build_lit_late_fusion_cfg(
             "embedding_dim": None,
             "include_sun": False,
             "include_time": include_time,
-            "include_site_yield_history": target_key == "site",
-            "include_gsp_yield_history": target_key == "gsp",
+            "include_generation_history": True,
             "forecast_minutes": forecast_minutes,
             "history_minutes": history_minutes,
             "interval_minutes": interval_minutes,
@@ -102,54 +99,23 @@ def build_lit_late_fusion_cfg(
         "save_all_validation_results": False,
     }
 
-
-def test_train_site(
-    site_data_config_path,
+def test_train_pvnet(
+    data_config_path,
     trainer_cfg_cpu,
     logger_cfg,
     ckpt_cfg,
 ):
-    """Train site model with W&B offline."""
+    """Train pvnet model with W&B offline."""
     cfg = DictConfig({
         "seed": 42,
         "datamodule": {
-            "_target_": "pvnet.datamodule.SitesDataModule",
-            "configuration": str(site_data_config_path),
+            "_target_": "pvnet.datamodule.PVNetDataModule",
+            "configuration": str(data_config_path),
             "batch_size": 2,
             "num_workers": 0,
             "prefetch_factor": None,
         },
         "model": build_lit_late_fusion_cfg(
-            target_key="site",
-            interval_minutes=15,
-            include_time=True,
-        ),
-        "logger": logger_cfg,
-        "callbacks": ckpt_cfg,
-        "trainer": trainer_cfg_cpu,
-    })
-
-    pvnet_train(cfg)
-
-
-def test_train_pv(
-    uk_data_config_path,
-    trainer_cfg_cpu,
-    logger_cfg,
-    ckpt_cfg,
-):
-    """Train GSP model with W&B offline."""
-    cfg = DictConfig({
-        "seed": 42,
-        "datamodule": {
-            "_target_": "pvnet.datamodule.UKRegionalDataModule",
-            "configuration": str(uk_data_config_path),
-            "batch_size": 2,
-            "num_workers": 0,
-            "prefetch_factor": None,
-        },
-        "model": build_lit_late_fusion_cfg(
-            target_key="gsp",
             interval_minutes=30,
             include_time=False,
         ),

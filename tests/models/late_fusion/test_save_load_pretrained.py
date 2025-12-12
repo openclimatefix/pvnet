@@ -10,7 +10,7 @@ def test_save_pretrained(
     tmp_path, 
     late_fusion_model, 
     raw_late_fusion_model_kwargs, 
-    uk_data_config_path
+    data_config_path
 ):
 
     # Construct the model config
@@ -24,7 +24,7 @@ def test_save_pretrained(
     late_fusion_model.save_pretrained(
         save_directory=model_output_dir,
         model_config=model_config,
-        data_config_path=uk_data_config_path,
+        data_config_path=data_config_path,
         wandb_repo="test",
         wandb_ids="abc",
         card_template_path=card_path,

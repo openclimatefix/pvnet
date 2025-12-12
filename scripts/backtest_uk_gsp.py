@@ -16,6 +16,7 @@ python backtest_uk_gsp.py
 
 import logging
 import os
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -35,44 +36,49 @@ from pvnet.models.base_model import BaseModel as PVNetBaseModel
 
 # ------------------------------------------------------------------
 # USER CONFIGURED VARIABLES
+
+# This dir is used as a working space during the backtest and also the final results will be saved
+# under the path {output_dir}.zarr
 output_dir = "/home/james/tmp/test_backtest/pvnet_v2"
 
 # Number of workers to use in the dataloader
 num_workers = 16
 
 # Location of the exported PVNet and summation model pair
-pvnet_model_name: str = "openclimatefix/pvnet_uk_region"
+pvnet_model_name: str = "openclimatefix-models/pvnet_uk_region"
 pvnet_model_version: str | None = "ff09e4aee871fe094d3a2dabe9d9cea50e4b5485"
 
-summation_model_name: str = "openclimatefix/pvnet_v2_summation"
+# If set to None, no national forecast is made
+summation_model_name: str | None = "openclimatefix-models/pvnet_v2_summation"
 summation_model_version: str | None = "d746683893330fe3380e57e65d40812daa343c8e"
 
-# Forecasts will be made for all available init times between these
+# Forecasts will be made for all available init-times between these. If set to None, predictions
+# will be made for all init-times avaiable accordng to the input data
 start_datetime: str | None = "2022-01-01 00:00" 
 end_datetime: str | None = "2022-12-31 23:30"
 
 # The paths to the input data for the backtest
 backtest_paths = {
-    "gsp": "/mnt/raphael/fast/crops/pv/pvlive_gsp_new_boundaries_2019-2025.zarr",
+    "gsp": "/mnt/storage_u2_30tb_a/ml_training_zarrs/pv/pvlive_gsp_new_boundaries_2019-2025.zarr",
     "nwp": {
         "ukv": [
-            "/mnt/raphael/fast/crops/nwp/ukv/UKV_v7/UKV_intermediate_version_7.1.zarr",
-            "/mnt/raphael/fast/crops/nwp/ukv/UKV_v7/UKV_2021_missing.zarr",
-            "/mnt/raphael/fast/crops/nwp/ukv/UKV_v7/UKV_2022.zarr",
+            "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ukv_v7/UKV_intermediate_version_7.1.zarr",
+            "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ukv_v7/UKV_2021_missing.zarr",
+            "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ukv_v7/UKV_2022.zarr",
         ], 
         "ecmwf": [
-            "/mnt/raphael/fast/crops/nwp/ecmwf/uk_v3/ECMWF_2019.zarr",
-            "/mnt/raphael/fast/crops/nwp/ecmwf/uk_v3/ECMWF_2020.zarr",
-            "/mnt/raphael/fast/crops/nwp/ecmwf/uk_v3/ECMWF_2021.zarr",
-            "/mnt/raphael/fast/crops/nwp/ecmwf/uk_v3/ECMWF_2022.zarr",
+            "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ecmwf_v3/ECMWF_2019.zarr",
+            "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ecmwf_v3/ECMWF_2020.zarr",
+            "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ecmwf_v3/ECMWF_2021.zarr",
+            "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ecmwf_v3/ECMWF_2022.zarr",
         ], 
         "cloudcasting": "/mnt/raphael/fast/cloudcasting/simvp.zarr",
     },
     "satellite": [
-        "/mnt/raphael/fast/crops/sat/uk_sat_crops/v1/2019_nonhrv.zarr",
-        "/mnt/raphael/fast/crops/sat/uk_sat_crops/v1/2020_nonhrv.zarr",
-        "/mnt/raphael/fast/crops/sat/uk_sat_crops/v1/2021_nonhrv.zarr",
-        "/mnt/raphael/fast/crops/sat/uk_sat_crops/v1/2022_nonhrv.zarr",
+        "/mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v1/2019_nonhrv.zarr",
+        "/mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v1/2020_nonhrv.zarr",
+        "/mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v1/2021_nonhrv.zarr",
+        "/mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v1/2022_nonhrv.zarr",
     ],
 }
 
@@ -179,24 +185,25 @@ class Forecaster:
         ).to(device).eval()
 
         # Load the summation model
-        self.sum_model = SummationBaseModel.from_pretrained(
-            model_id=summation_model_name,
-            revision=summation_model_version,
-        ).to(device).eval()
+        if summation_model_name is not None:
+            self.sum_model = SummationBaseModel.from_pretrained(
+                model_id=summation_model_name,
+                revision=summation_model_version,
+            ).to(device).eval()
 
-        # Compare the current GSP model with the one the summation model was trained on
-        datamodule_path = SummationBaseModel.get_datamodule_config(
-            model_id=summation_model_name,
-            revision=summation_model_version,
-        )
-        with open(datamodule_path) as cfg:
-            sum_pvnet_cfg = yaml.load(cfg, Loader=yaml.FullLoader)["pvnet_model"]
+            # Compare the current GSP model with the one the summation model was trained on
+            datamodule_path = SummationBaseModel.get_datamodule_config(
+                model_id=summation_model_name,
+                revision=summation_model_version,
+            )
+            with open(datamodule_path) as cfg:
+                sum_pvnet_cfg = yaml.load(cfg, Loader=yaml.FullLoader)["pvnet_model"]
 
-        sum_expected_gsp_model = (sum_pvnet_cfg["model_id"], sum_pvnet_cfg["revision"])
-        this_gsp_model = (pvnet_model_name, pvnet_model_version)
+            sum_expected_gsp_model = (sum_pvnet_cfg["model_id"], sum_pvnet_cfg["revision"])
+            this_gsp_model = (pvnet_model_name, pvnet_model_version)
 
-        if sum_expected_gsp_model != this_gsp_model:
-            logger.warning(_model_mismatch_msg.format(*this_gsp_model, *sum_expected_gsp_model))
+            if sum_expected_gsp_model != this_gsp_model:
+                logger.warning(_model_mismatch_msg.format(*this_gsp_model, *sum_expected_gsp_model))
 
         # These are the steps this forecast will predict for
         self.steps = pd.timedelta_range(
@@ -243,39 +250,43 @@ class Forecaster:
         # Apply sundown mask
         da_abs = da_abs.where(~da_sundown_mask).fillna(0.0)
 
-        # Make national predictions using summation model
-        # - Need to add batch dimension and convert to torch tensors on device
-        sample["pvnet_outputs"] = torch.tensor(normed_preds[None]).to(device)
-        sample["relative_capacity"] = sample["relative_capacity"][None].to(device)
-        normed_national = self.sum_model(sample).detach().squeeze().cpu().numpy()
+        if summation_model_name is not None:
+            # Make national predictions using summation model
+            # - Need to add batch dimension and convert to torch tensors on device
+            sample["pvnet_outputs"] = torch.tensor(normed_preds[None]).to(device)
+            for k in ["relative_capacity", "azimuth", "elevation"]:
+                sample[k] = sample[k][None].to(device)
+            normed_national = self.sum_model(sample).detach().squeeze().cpu().numpy()
 
-        # Convert national predictions to DataArray
-        da_normed_national = self.to_dataarray(
-            normed_national[np.newaxis],
-            t0,
-            gsp_ids=[0],
-            output_quantiles=self.sum_model.output_quantiles,
-        )
+            # Convert national predictions to DataArray
+            da_normed_national = self.to_dataarray(
+                normed_national[np.newaxis],
+                t0,
+                gsp_ids=[0],
+                output_quantiles=self.sum_model.output_quantiles,
+            )
 
-        # Multiply normalised forecasts by capacity and clip negatives
-        national_capacity = sample["backtest_national_capacity"]
-        da_abs_national = da_normed_national.clip(0, None) * national_capacity
+            # Multiply normalised forecasts by capacity and clip negatives
+            national_capacity = sample["backtest_national_capacity"]
+            da_abs_national = da_normed_national.clip(0, None) * national_capacity
 
-        # Apply sundown mask - All GSPs must be masked to mask national
-        da_abs_national = da_abs_national.where(~da_sundown_mask.all(dim="gsp_id")).fillna(0.0)
+            # Apply sundown mask - All GSPs must be masked to mask national
+            da_abs_national = da_abs_national.where(~da_sundown_mask.all(dim="gsp_id")).fillna(0.0)
 
-        # Convert to Dataset and add attrs about the models used
-        ds_result = xr.concat([da_abs_national, da_abs], dim="gsp_id").to_dataset(name="hindcast")
-        ds_result.attrs.update(
+            # Convert to Dataset and add attrs about the models used
+            da_abs = xr.concat([da_abs_national, da_abs], dim="gsp_id")
+            
+        da_abs = da_abs.to_dataset(name="hindcast")
+        da_abs.attrs.update(
             {
                 "pvnet_model_name": pvnet_model_name,
-                "pvnet_model_version": pvnet_model_version,
-                "summation_model_name": summation_model_name,
-                "summation_model_version": summation_model_version,
+                "pvnet_model_version": pvnet_model_version or "none",
+                "summation_model_name": summation_model_name or "none",
+                "summation_model_version": summation_model_version or "none",
             }
         )
 
-        return ds_result
+        return da_abs
 
     def to_dataarray(
         self,
@@ -305,7 +316,7 @@ class Forecaster:
 if __name__=="__main__":
 
     # Set up output dir
-    os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=False)
 
     data_config_path = PVNetBaseModel.get_data_config(
         model_id=pvnet_model_name,
@@ -370,3 +381,11 @@ if __name__=="__main__":
     # Clean up
     if num_workers>0:
         os.remove(f"{output_dir}/dataset.pkl")
+
+    # Reload all the forecasts and resave as single zarr
+    ds_all_forecast = xr.open_mfdataset(f"{output_dir}/*.nc", parallel=True).compute()
+    ds_all_forecast = ds_all_forecast.chunk({"init_time_utc": 32})
+    ds_all_forecast.to_zarr(f"{output_dir}.zarr")
+
+    # Remove the intermediate results
+    shutil.rmtree(output_dir)

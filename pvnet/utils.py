@@ -1,4 +1,5 @@
 """Utils"""
+
 import logging
 from typing import TYPE_CHECKING
 
@@ -17,7 +18,7 @@ PYTORCH_WEIGHTS_NAME = "model_weights.safetensors"
 MODEL_CONFIG_NAME = "model_config.yaml"
 DATA_CONFIG_NAME = "data_config.yaml"
 DATAMODULE_CONFIG_NAME = "datamodule_config.yaml"
-FULL_CONFIG_NAME =  "full_experiment_config.yaml"
+FULL_CONFIG_NAME = "full_experiment_config.yaml"
 MODEL_CARD_NAME = "README.md"
 
 
@@ -93,37 +94,41 @@ def print_config(
 
 
 def validate_batch_against_config(
-    batch: dict, 
+    batch: dict,
     model: "BaseModel",
 ) -> None:
     """Validates tensor shapes in batch against model configuration."""
     logger.info("Performing batch shape validation against model config.")
-    
+
     # NWP validation
-    if hasattr(model, 'nwp_encoders_dict'):
+    if hasattr(model, "nwp_encoders_dict"):
         if "nwp" not in batch:
             raise ValueError(
                 "Model configured with 'nwp_encoders_dict' but 'nwp' data missing from batch."
             )
-            
+
         for source, nwp_data in batch["nwp"].items():
             if source in model.nwp_encoders_dict:
-
-                enc = model.nwp_encoders_dict[source]                
+                enc = model.nwp_encoders_dict[source]
                 expected_channels = enc.in_channels
                 if model.add_image_embedding_channel:
                     expected_channels -= 1
 
-                expected = (nwp_data["nwp"].shape[0], enc.sequence_length, 
-                           expected_channels, enc.image_size_pixels, enc.image_size_pixels)
+                expected = (
+                    nwp_data["nwp"].shape[0],
+                    enc.sequence_length,
+                    expected_channels,
+                    enc.image_size_pixels,
+                    enc.image_size_pixels,
+                )
                 if tuple(nwp_data["nwp"].shape) != expected:
-                    actual_shape = tuple(nwp_data['nwp'].shape)
+                    actual_shape = tuple(nwp_data["nwp"].shape)
                     raise ValueError(
                         f"NWP.{source} shape mismatch: expected {expected}, got {actual_shape}"
                     )
 
     # Satellite validation
-    if hasattr(model, 'sat_encoder'):
+    if hasattr(model, "sat_encoder"):
         if "satellite_actual" not in batch:
             raise ValueError(
                 "Model configured with 'sat_encoder' but 'satellite_actual' missing from batch."
@@ -134,14 +139,19 @@ def validate_batch_against_config(
         if model.add_image_embedding_channel:
             expected_channels -= 1
 
-        expected = (batch["satellite_actual"].shape[0], enc.sequence_length, expected_channels, 
-                enc.image_size_pixels, enc.image_size_pixels)
+        expected = (
+            batch["satellite_actual"].shape[0],
+            enc.sequence_length,
+            expected_channels,
+            enc.image_size_pixels,
+            enc.image_size_pixels,
+        )
         if tuple(batch["satellite_actual"].shape) != expected:
-            actual_shape = tuple(batch['satellite_actual'].shape)
+            actual_shape = tuple(batch["satellite_actual"].shape)
             raise ValueError(f"Satellite shape mismatch: expected {expected}, got {actual_shape}")
 
-    # GSP/Site validation
-    key = model._target_key
+    # generation validation
+    key = "generation"
     if key in batch:
         total_minutes = model.history_minutes + model.forecast_minutes
         interval = model.interval_minutes

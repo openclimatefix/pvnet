@@ -1,4 +1,5 @@
 """Base model for all PVNet submodels"""
+
 import logging
 import os
 import shutil
@@ -32,7 +33,7 @@ def fill_config_paths_with_placeholder(config: dict, placeholder: str = "PLACEHO
     """
     input_config = config["input_data"]
 
-    for source in ["gsp", "satellite"]:
+    for source in ["generation", "satellite"]:
         if source in input_config:
             # If not empty - i.e. if used
             if input_config[source]["zarr_path"] != "":
@@ -78,8 +79,8 @@ def minimize_config_for_model(config: dict, model: "BaseModel") -> dict:
 
                     # Replace the interval_end_minutes minutes
                     nwp_config["interval_end_minutes"] = (
-                        nwp_config["interval_start_minutes"] +
-                        (model.nwp_encoders_dict[nwp_source].sequence_length - 1)
+                        nwp_config["interval_start_minutes"]
+                        + (model.nwp_encoders_dict[nwp_source].sequence_length - 1)
                         * nwp_config["time_resolution_minutes"]
                     )
 
@@ -96,20 +97,19 @@ def minimize_config_for_model(config: dict, model: "BaseModel") -> dict:
 
             # Replace the interval_end_minutes minutes
             sat_config["interval_end_minutes"] = (
-                sat_config["interval_start_minutes"] +
-                (model.sat_encoder.sequence_length - 1)
-                * sat_config["time_resolution_minutes"]
+                sat_config["interval_start_minutes"]
+                + (model.sat_encoder.sequence_length - 1) * sat_config["time_resolution_minutes"]
             )
 
     if "pv" in input_config:
         if not model.include_pv:
             del input_config["pv"]
 
-    if "gsp" in input_config:
-        gsp_config = input_config["gsp"]
+    if "generation" in input_config:
+        generation_config = input_config["generation"]
 
         # Replace the forecast minutes
-        gsp_config["interval_end_minutes"] = model.forecast_minutes
+        generation_config["interval_end_minutes"] = model.forecast_minutes
 
     if "solar_position" in input_config:
         solar_config = input_config["solar_position"]
@@ -138,9 +138,9 @@ def download_from_hf(
         force_download: Whether to force a new download
         max_retries: Maximum number of retry attempts
         wait_time: Wait time (in seconds) before retrying
-        token: 
+        token:
             HF authentication token. If True, the token is read from the HuggingFace config folder.
-            If a string, it is used as the authentication token. 
+            If a string, it is used as the authentication token.
 
     Returns:
         The local file path of the downloaded file(s)
@@ -160,7 +160,7 @@ def download_from_hf(
                 return [f"{save_dir}/{f}" for f in filename]
             else:
                 return f"{save_dir}/{filename}"
-        
+
         except Exception as e:
             if attempt == max_retries:
                 raise Exception(
@@ -205,7 +205,7 @@ class HuggingfaceMixin:
                 force_download=force_download,
                 max_retries=5,
                 wait_time=10,
-                token=token
+                token=token,
             )
 
         with open(config_file, "r") as f:
@@ -240,7 +240,7 @@ class HuggingfaceMixin:
                 force_download=force_download,
                 max_retries=5,
                 wait_time=10,
-                token=token
+                token=token,
             )
 
         return data_config_file
@@ -301,7 +301,7 @@ class HuggingfaceMixin:
         # Save cleaned version of input data configuration file
         with open(data_config_path) as cfg:
             config = yaml.load(cfg, Loader=yaml.FullLoader)
-        
+
         config = fill_config_paths_with_placeholder(config)
         config = minimize_config_for_model(config, self)
 
@@ -311,7 +311,7 @@ class HuggingfaceMixin:
         # Save the datamodule config
         if datamodule_config_path is not None:
             shutil.copyfile(datamodule_config_path, save_directory / DATAMODULE_CONFIG_NAME)
-        
+
         # Save the full experimental config
         if experiment_config_path is not None:
             shutil.copyfile(experiment_config_path, save_directory / FULL_CONFIG_NAME)
@@ -378,7 +378,6 @@ class HuggingfaceMixin:
         packages_to_display = ["pvnet", "ocf-data-sampler"]
         packages_and_versions = {package: version(package) for package in packages_to_display}
 
-
         package_versions_markdown = ""
         for package, v in packages_and_versions.items():
             package_versions_markdown += f" - {package}=={v}\n"
@@ -399,22 +398,18 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         history_minutes: int,
         forecast_minutes: int,
         output_quantiles: list[float] | None = None,
-        target_key: str = "gsp",
         interval_minutes: int = 30,
     ):
         """Abtstract base class for PVNet submodels.
 
         Args:
-            history_minutes (int): Length of the GSP history period in minutes
-            forecast_minutes (int): Length of the GSP forecast period in minutes
+            history_minutes (int): Length of the generation history period in minutes
+            forecast_minutes (int): Length of the generation forecast period in minutes
             output_quantiles: A list of float (0.0, 1.0) quantiles to predict values for. If set to
                 None the output is a single value.
-            target_key: The key of the target variable in the batch
             interval_minutes: The interval in minutes between each timestep in the data
         """
         super().__init__()
-
-        self._target_key = target_key
 
         self.history_minutes = history_minutes
         self.forecast_minutes = forecast_minutes
