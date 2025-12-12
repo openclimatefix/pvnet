@@ -264,7 +264,7 @@ class PVNetLightningModule(pl.LightningModule):
         # not every epoch
         if self.current_epoch==0:
             # Need to find last valid value before forecast
-            target_data = batch[self.model._target_key]
+            target_data = batch["generation"]
             history_data = target_data[:, :-(self.model.forecast_len)]
             
             # Find where values aren't dropped
