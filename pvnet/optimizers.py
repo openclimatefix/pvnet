@@ -65,7 +65,7 @@ class AbstractOptimizer(ABC):
     """
 
     @abstractmethod
-    def __call__(self):
+    def __call__(self, model: Module):
         """Abstract call"""
         pass
 
@@ -129,19 +129,18 @@ class EmbAdamWReduceLROnPlateau(AbstractOptimizer):
             {"params": decay, "weight_decay": self.weight_decay},
             {"params": no_decay, "weight_decay": 0.0},
         ]
+        monitor = "quantile_loss/val" if model.use_quantile_regression else "MAE/val"
         opt = torch.optim.AdamW(optim_groups, lr=self.lr, **self.opt_kwargs)
-
         sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
             opt,
             factor=self.factor,
             patience=self.patience,
             threshold=self.threshold,
         )
-        sch = {
-            "scheduler": sch,
-            "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
+        return {
+            "optimizer": opt,
+            "lr_scheduler": {"scheduler": sch, "monitor": monitor},
         }
-        return [opt], [sch]
 
 
 class AdamWReduceLROnPlateau(AbstractOptimizer):
@@ -153,15 +152,13 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
         patience: int = 3, 
         factor: float = 0.5, 
         threshold: float = 2e-4, 
-        step_freq=None, 
         **opt_kwargs,
     ):
         """AdamW optimizer and reduce on plateau scheduler"""
-        self._lr = lr
+        self.lr = lr
         self.patience = patience
         self.factor = factor
         self.threshold = threshold
-        self.step_freq = step_freq
         self.opt_kwargs = opt_kwargs
 
     def _call_multi(self, model):
@@ -169,7 +166,7 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
 
         group_args = []
 
-        for key in self._lr.keys():
+        for key in self.lr.keys():
             if key == "default":
                 continue
 
@@ -178,43 +175,38 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
                 if param_name.startswith(key):
                     submodule_params += [remaining_params.pop(param_name)]
 
-            group_args += [{"params": submodule_params, "lr": self._lr[key]}]
+            group_args += [{"params": submodule_params, "lr": self.lr[key]}]
 
         remaining_params = [p for k, p in remaining_params.items()]
         group_args += [{"params": remaining_params}]
-
-        opt = torch.optim.AdamW(
-            group_args, 
-            lr=self._lr["default"] if model.lr is None else model.lr, 
-            **self.opt_kwargs,
+        monitor = "quantile_loss/val" if model.use_quantile_regression else "MAE/val"
+        opt = torch.optim.AdamW(group_args, lr=self.lr["default"], **self.opt_kwargs)
+        sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            opt,
+            factor=self.factor,
+            patience=self.patience,
+            threshold=self.threshold,
         )
-        sch = {
-            "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                opt,
-                factor=self.factor,
-                patience=self.patience,
-                threshold=self.threshold,
-            ),
-            "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
+        return {
+            "optimizer": opt,
+            "lr_scheduler": {"scheduler": sch, "monitor": monitor},
         }
 
-        return [opt], [sch]
 
     def __call__(self, model):
         """Return optimizer"""
-        if not isinstance(self._lr, float):
+        if isinstance(self.lr, dict):
             return self._call_multi(model)
         else:
-            default_lr = self._lr if model.lr is None else model.lr
-            opt = torch.optim.AdamW(model.parameters(), lr=default_lr, **self.opt_kwargs)
+            monitor = "quantile_loss/val" if model.use_quantile_regression else "MAE/val"
+            opt = torch.optim.AdamW(model.parameters(), lr=self.lr, **self.opt_kwargs)
             sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 opt,
                 factor=self.factor,
                 patience=self.patience,
                 threshold=self.threshold,
             )
-            sch = {
-                "scheduler": sch,
-                "monitor": "quantile_loss/val" if model.use_quantile_regression else "MAE/val",
+            return {
+                "optimizer": opt,
+                "lr_scheduler": {"scheduler": sch, "monitor": monitor},
             }
-            return [opt], [sch]
