@@ -109,7 +109,7 @@ class PVNetLightningModule(pl.LightningModule):
         losses = self._calculate_common_losses(y, y_hat)
         losses = {f"{k}/train": v for k, v in losses.items()}
 
-        self.log_dict(losses, on_step=True, on_epoch=True)
+        self.log_dict(losses, on_step=True, on_epoch=True, batch_size=y.size(0))
 
         if self.model.use_quantile_regression:
             opt_target = losses["quantile_loss/train"]
@@ -289,7 +289,7 @@ class PVNetLightningModule(pl.LightningModule):
             )
 
         # Log the metrics
-        self.log_dict(losses, on_step=False, on_epoch=True)
+        self.log_dict(losses, on_step=False, on_epoch=True, batch_size=y.size(0))
 
     def on_validation_epoch_end(self) -> None:
         """Run on epoch end"""
