@@ -275,7 +275,9 @@ class Forecaster:
             da_abs_national = da_normed_national.clip(0, None) * national_capacity
 
             # Apply sundown mask - All regions must be masked to mask national
-            da_abs_national = da_abs_national.where(~da_sundown_mask.all(dim="location_id")).fillna(0.0)
+            da_abs_national = da_abs_national.where(
+                ~da_sundown_mask.all(dim="location_id")
+            ).fillna(0.0)
 
             # Convert to Dataset and add attrs about the models used
             da_abs = xr.concat([da_abs_national, da_abs], dim="location_id")
