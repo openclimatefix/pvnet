@@ -50,7 +50,7 @@ def sat_zarr_path(session_tmp_path) -> str:
         "IR_016", "IR_039", "IR_087", "IR_097", "IR_108", "IR_120",
         "IR_134", "VIS006", "VIS008", "WV_062", "WV_073",
     ]
-    times = pd.date_range("2023-01-01 00:00", "2023-01-01 23:55", freq="5min")
+    times = pd.date_range("2023-01-01 00:00", "2023-01-01 12:00", freq="5min")
     y = np.linspace(start=4191563, stop=5304712, num=100)
     x = np.linspace(start=15002, stop=-1824245, num=100)
 
@@ -79,9 +79,9 @@ def sat_zarr_path(session_tmp_path) -> str:
 
 @pytest.fixture(scope="session")
 def ukv_zarr_path(session_tmp_path) -> str:
-    init_times = pd.date_range(start="2023-01-01 00:00", freq="180min", periods=24 * 7)
+    init_times = pd.date_range(start="2023-01-01 00:00", freq="180min", periods=2)
     variables = ["si10", "dswrf", "t", "prate"]
-    steps = pd.timedelta_range("0h", "24h", freq="1h")
+    steps = pd.timedelta_range("0h", "14h", freq="1h")
     x = np.linspace(-239_000, 857_000, 200)
     y = np.linspace(-183_000, 1425_000, 200)
     
@@ -109,7 +109,7 @@ def ukv_zarr_path(session_tmp_path) -> str:
 
 @pytest.fixture(scope="session")
 def ecmwf_zarr_path(session_tmp_path) -> str:
-    init_times = pd.date_range(start="2023-01-01 00:00", freq="6h", periods=24 * 7)
+    init_times = pd.date_range(start="2023-01-01 00:00", freq="6h", periods=2)
     variables = ["t2m", "dswrf", "mcc"]
     steps = pd.timedelta_range("0h", "14h", freq="1h")
     lons = np.arange(-12.0, 3.0, 0.1)
