@@ -1,19 +1,48 @@
 name: Branch CI (Python)
 run-name: 'Test branch commit "${{ github.event.head_commit.message }}"'
 
-on:  
+on:
   push:
-    branches-ignore: [ "main" ]
-    paths-ignore: ['README.md']
+    branches-ignore: ["main"]
+    paths-ignore: ["README.md"]
 
 jobs:
-  branch-ci:
-    uses: openclimatefix/.github/.github/workflows/branch_ci.yml@main
-    secrets: inherit
-    with:
-      enable_linting: true
-      enable_typechecking: false
-      containerfile: 'None'
-      tests_folder: 'tests'
-      tests_matrix: true
-      test_python_versions: '["3.11", "3.12"]'
+  test-unit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          df -h
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          sudo apt-get clean || true
+          df -h
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install deps
+        run: uv sync --frozen || uv sync
+
+      - name: Run unit tests
+        env:
+          PYTEST_ADDOPTS: "--basetemp=/tmp/pytest"
+        run: |
+          rm -rf /tmp/pytest || true
+          uv run python -m pytest --junitxml=ut-report.xml tests
+
+      - name: Cleanup pytest temp
+        if: always()
+        run: rm -rf /tmp/pytest || true
