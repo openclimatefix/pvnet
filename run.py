@@ -16,7 +16,6 @@ from pvnet.utils import print_config, run_config_utilities, validate_gpu_config
 logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 
 
-
 @hydra.main(config_path="configs/", config_name="config.yaml", version_base="1.2")
 def main(config: DictConfig) -> None:
     """Runs training"""
