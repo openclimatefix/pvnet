@@ -69,6 +69,7 @@ model:
   embedding_dim: 16
   include_sun: True
   include_generation_history: False
+  t0_embedding_dim: 3
 
   # The mapping between the location IDs and their embedding indices
   location_id_mapping:

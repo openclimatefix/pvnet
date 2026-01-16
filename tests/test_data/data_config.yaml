@@ -125,3 +125,6 @@ input_data:
     interval_start_minutes: -60
     interval_end_minutes: 480
     time_resolution_minutes: 30
+
+  t0_embedding:
+    embeddings: [["1h", "linear"], ["24h", "cyclic"]]

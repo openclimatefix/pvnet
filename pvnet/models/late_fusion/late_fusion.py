@@ -46,6 +46,7 @@ class LateFusionModel(BaseModel):
         include_generation_history: bool = False,
         include_sun: bool = True,
         include_time: bool = False,
+        t0_embedding_dim: int = 0,
         location_id_mapping: dict[Any, int] | None = None,
         embedding_dim: int = 16,
         forecast_minutes: int = 30,
@@ -85,6 +86,8 @@ class LateFusionModel(BaseModel):
             include_generation_history: Include generation yield data.
             include_sun: Include sun azimuth and altitude data.
             include_time: Include sine and cosine of dates and times.
+            t0_embedding_dim: Shape of the embedding of the init-time (t0) of the forecast. Not used
+                if set to 0.
             location_id_mapping: A dictionary mapping the location ID to an integer. ID embedding is
                 not used if this is not provided.
             embedding_dim: Number of embedding dimensions to use for location ID.
@@ -119,6 +122,7 @@ class LateFusionModel(BaseModel):
         self.include_pv = pv_encoder is not None
         self.include_sun = include_sun
         self.include_time = include_time
+        self.t0_embedding_dim = t0_embedding_dim
         self.location_id_mapping = location_id_mapping
         self.embedding_dim = embedding_dim
         self.add_image_embedding_channel = add_image_embedding_channel
@@ -246,6 +250,8 @@ class LateFusionModel(BaseModel):
             # Update num features
             fusion_input_features += 32
 
+        fusion_input_features += self.t0_embedding_dim
+
         if include_generation_history:
             # Update num features
             fusion_input_features += self.history_len + 1
@@ -320,6 +326,9 @@ class LateFusionModel(BaseModel):
             time = torch.cat(time, dim=1).float()
             time = self.time_fc1(time)
             modes["time"] = time
+
+        if self.t0_embedding_dim>0:
+            modes["t0_embed"] = x["t0_embedding"]
 
         out = self.output_network(modes)
 
