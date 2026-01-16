@@ -101,66 +101,64 @@ def validate_batch_against_config(
     logger.info("Performing batch shape validation against model config.")
 
     # NWP validation
-    if hasattr(model, "nwp_encoders_dict"):
+    if model.include_nwp:
         if "nwp" not in batch:
-            raise ValueError(
-                "Model configured with 'nwp_encoders_dict' but 'nwp' data missing from batch."
-            )
+            raise ValueError("Model uses NWP data but 'nwp' missing from batch.")
 
-        for source, nwp_data in batch["nwp"].items():
-            if source in model.nwp_encoders_dict:
-                enc = model.nwp_encoders_dict[source]
-                expected_channels = enc.in_channels
-                if model.add_image_embedding_channel:
-                    expected_channels -= 1
-
-                expected = (
-                    nwp_data["nwp"].shape[0],
-                    enc.sequence_length,
-                    expected_channels,
-                    enc.image_size_pixels,
-                    enc.image_size_pixels,
+        for source in model.nwp_encoders_dict:
+            if source not in batch["nwp"]:
+                raise ValueError(
+                    f"Model uses NWP source '{source}' but it is missing from batch['nwp']."
                 )
-                if tuple(nwp_data["nwp"].shape) != expected:
-                    actual_shape = tuple(nwp_data["nwp"].shape)
-                    raise ValueError(
-                        f"NWP.{source} shape mismatch: expected {expected}, got {actual_shape}"
-                    )
+
+            enc = model.nwp_encoders_dict[source]
+            expected_channels = enc.in_channels - int(model.add_image_embedding_channel)
+            
+            expected_shape = (
+                batch["nwp"][source]["nwp"].shape[0],
+                enc.sequence_length,
+                expected_channels,
+                enc.image_size_pixels,
+                enc.image_size_pixels,
+            )
+            actual_shape = tuple(batch["nwp"][source]["nwp"].shape)
+            if actual_shape != expected_shape:
+                raise ValueError(
+                    f"NWP.{source} shape mismatch: expected {expected_shape}, got {actual_shape}"
+                )
 
     # Satellite validation
-    if hasattr(model, "sat_encoder"):
+    if model.include_sat:
         if "satellite_actual" not in batch:
             raise ValueError(
-                "Model configured with 'sat_encoder' but 'satellite_actual' missing from batch."
+                "Model uses satellite data but 'satellite_actual' missing from batch."
             )
 
         enc = model.sat_encoder
-        expected_channels = enc.in_channels
-        if model.add_image_embedding_channel:
-            expected_channels -= 1
+        expected_channels = enc.in_channels - int(model.add_image_embedding_channel)
 
-        expected = (
+        expected_shape = (
             batch["satellite_actual"].shape[0],
             enc.sequence_length,
             expected_channels,
             enc.image_size_pixels,
             enc.image_size_pixels,
         )
-        if tuple(batch["satellite_actual"].shape) != expected:
-            actual_shape = tuple(batch["satellite_actual"].shape)
-            raise ValueError(f"Satellite shape mismatch: expected {expected}, got {actual_shape}")
+        actual_shape = tuple(batch["satellite_actual"].shape)
+        if actual_shape != expected_shape:
+            raise ValueError(
+                f"Satellite shape mismatch: expected {expected_shape}, got {actual_shape}"
+            )
 
-    # generation validation
     key = "generation"
     if key in batch:
         total_minutes = model.history_minutes + model.forecast_minutes
-        interval = model.interval_minutes
-        expected_len = total_minutes // interval + 1
-        expected = (batch[key].shape[0], expected_len)
-        if tuple(batch[key].shape) != expected:
-            actual_shape = tuple(batch[key].shape)
+        expected_len = total_minutes // model.interval_minutes + 1
+        expected_shape = (batch[key].shape[0], expected_len)
+        actual_shape = tuple(batch[key].shape)
+        if actual_shape != expected_shape:
             raise ValueError(
-                f"{key.upper()} shape mismatch: expected {expected}, got {actual_shape}"
+                f"Generation data shape mismatch: expected {expected_shape}, got {actual_shape}"
             )
 
     logger.info("Batch shape validation successful!")
