@@ -327,6 +327,7 @@ def raw_late_fusion_model_kwargs_generation_history(model_minutes_kwargs) -> dic
         embedding_dim=None,
         include_sun=False,
         include_time=True,
+        t0_embedding_dim=3,
         include_generation_history=True,
         forecast_minutes=480, 
         history_minutes=60,

@@ -273,3 +273,9 @@ input_data:
     interval_start_minutes: -60
     interval_end_minutes: 480
     time_resolution_minutes: 30
+
+  # Note that each "cyclic" embedding adds 2 elements to the output vector to embed a period whilst 
+  # "linear" adds only 1 element. This needs to be matched to the model `t0_embedding_dim` param. 
+  # e.g. these embedding would require t0_embedding_dim = 3 (1 + 2).
+  t0_embedding:
+    embeddings: [["1h", "linear"], ["24h", "cyclic"]]
