@@ -137,7 +137,10 @@ def validate_batch_against_config(
         _, actual_seq, actual_ch, h, w = sat_data.shape
 
         if actual_ch != exp_ch or h != enc.image_size_pixels or w != enc.image_size_pixels:
-            msg = f"Sat mismatch: Exp {exp_ch}ch, {enc.image_size_pixels}px. Got {actual_ch}ch, {h}x{w}px"
+            msg = (
+                f"Sat mismatch: Exp {exp_ch}ch, {enc.image_size_pixels}px. "
+                f"Got {actual_ch}ch, {h}x{w}px"
+            )
             raise ValueError(msg)
 
         if actual_seq > enc.sequence_length:
