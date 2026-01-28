@@ -129,26 +129,22 @@ def validate_batch_against_config(
 
     # Satellite validation
     if model.include_sat:
-        if "satellite_actual" not in batch:
-            raise ValueError(
-                "Model uses satellite data but 'satellite_actual' missing from batch."
-            )
+        if (sat_data := batch.get("satellite_actual")) is None:
+            raise ValueError("Model uses sat data but 'satellite_actual' missing from batch.")
 
         enc = model.sat_encoder
-        expected_channels = enc.in_channels - int(model.add_image_embedding_channel)
+        exp_ch = enc.in_channels - int(model.add_image_embedding_channel)
+        _, actual_seq, actual_ch, h, w = sat_data.shape
 
-        expected_shape = (
-            batch["satellite_actual"].shape[0],
-            enc.sequence_length,
-            expected_channels,
-            enc.image_size_pixels,
-            enc.image_size_pixels,
-        )
-        actual_shape = tuple(batch["satellite_actual"].shape)
-        if actual_shape != expected_shape:
-            raise ValueError(
-                f"Satellite shape mismatch: expected {expected_shape}, got {actual_shape}"
+        if actual_ch != exp_ch or h != enc.image_size_pixels or w != enc.image_size_pixels:
+            msg = (
+                f"Sat mismatch: Exp {exp_ch}ch, {enc.image_size_pixels}px. "
+                f"Got {actual_ch}ch, {h}x{w}px"
             )
+            raise ValueError(msg)
+
+        if actual_seq < enc.sequence_length:
+            raise ValueError(f"Sat too short: exp {enc.sequence_length}, got {actual_seq}")
 
     key = "generation"
     if key in batch:

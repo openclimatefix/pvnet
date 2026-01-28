@@ -38,3 +38,45 @@ def test_validate_gpu_config_multiple_devices(trainer_cfg):
     """Reject accidental multi-GPU setups."""
     with pytest.raises(ValueError, match="Parallel training not supported"):
         validate_gpu_config(trainer_cfg({"devices": 2}))
+
+
+def test_validate_batch_longer_sequence(batch, late_fusion_model):
+    """Test validation passes when batch sequence longer than required"""
+    enc = late_fusion_model.sat_encoder
+    actual_ch = enc.in_channels - int(late_fusion_model.add_image_embedding_channel)
+    
+    longer_batch = {
+        "satellite_actual": torch.randn(
+            1, 
+            enc.sequence_length + 5, 
+            actual_ch, 
+            enc.image_size_pixels, 
+            enc.image_size_pixels
+        ),
+        "nwp": batch["nwp"],
+        "generation": batch["generation"]
+    }
+    
+    validate_batch_against_config(batch=longer_batch, model=late_fusion_model)
+
+
+def test_validate_batch_against_shorter_sequence(late_fusion_model):
+    """Test validation raises error when sequence shorter than required"""
+
+    # Configured for sat only as of the moment
+    late_fusion_model.include_nwp = False 
+    enc = late_fusion_model.sat_encoder
+    actual_ch = enc.in_channels - int(late_fusion_model.add_image_embedding_channel)
+    
+    short_batch = {
+        "satellite_actual": torch.randn(
+            1, 
+            1,
+            actual_ch, 
+            enc.image_size_pixels, 
+            enc.image_size_pixels
+        ),
+    }
+    
+    with pytest.raises(ValueError, match="Sat too short"):
+        validate_batch_against_config(batch=short_batch, model=late_fusion_model)
