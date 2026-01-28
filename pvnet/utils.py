@@ -143,9 +143,7 @@ def validate_batch_against_config(
             )
             raise ValueError(msg)
 
-        if actual_seq > enc.sequence_length:
-            batch["satellite_actual"] = sat_data[:, -enc.sequence_length:, ...]
-        elif actual_seq < enc.sequence_length:
+        if actual_seq < enc.sequence_length:
             raise ValueError(f"Sat too short: exp {enc.sequence_length}, got {actual_seq}")
 
     key = "generation"
