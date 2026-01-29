@@ -45,6 +45,7 @@ def test_validate_batch_longer_sequence(batch, late_fusion_model):
     enc = late_fusion_model.sat_encoder
     actual_ch = enc.in_channels - int(late_fusion_model.add_image_embedding_channel)
     
+    # Sat longer - NWP already valid
     longer_batch = {
         "satellite_actual": torch.randn(
             1, 
