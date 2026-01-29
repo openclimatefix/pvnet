@@ -102,30 +102,26 @@ def validate_batch_against_config(
 
     # NWP validation
     if model.include_nwp:
-        if "nwp" not in batch:
+        if (nwp_dict := batch.get("nwp")) is None:
             raise ValueError("Model uses NWP data but 'nwp' missing from batch.")
 
-        for source in model.nwp_encoders_dict:
-            if source not in batch["nwp"]:
-                raise ValueError(
-                    f"Model uses NWP source '{source}' but it is missing from batch['nwp']."
-                )
+        for source, enc in model.nwp_encoders_dict.items():
+            if (src_data := nwp_dict.get(source)) is None:
+                raise ValueError(f"NWP source '{source}' missing from batch['nwp'].")
 
-            enc = model.nwp_encoders_dict[source]
-            expected_channels = enc.in_channels - int(model.add_image_embedding_channel)
-            
-            expected_shape = (
-                batch["nwp"][source]["nwp"].shape[0],
-                enc.sequence_length,
-                expected_channels,
-                enc.image_size_pixels,
-                enc.image_size_pixels,
-            )
-            actual_shape = tuple(batch["nwp"][source]["nwp"].shape)
-            if actual_shape != expected_shape:
-                raise ValueError(
-                    f"NWP.{source} shape mismatch: expected {expected_shape}, got {actual_shape}"
+            nwp_tensor = src_data["nwp"]
+            exp_ch = enc.in_channels - int(model.add_image_embedding_channel)
+            _, actual_seq, actual_ch, h, w = nwp_tensor.shape
+
+            if actual_ch != exp_ch or h != enc.image_size_pixels or w != enc.image_size_pixels:
+                msg = (
+                    f"NWP.{source} mismatch: Exp {exp_ch}ch, {enc.image_size_pixels}px. "
+                    f"Got {actual_ch}ch, {h}x{w}px"
                 )
+                raise ValueError(msg)
+
+            if actual_seq < enc.sequence_length:
+                raise ValueError(f"NWP.{source} too short: exp {enc.sequence_length}, got {actual_seq}")
 
     # Satellite validation
     if model.include_sat:
