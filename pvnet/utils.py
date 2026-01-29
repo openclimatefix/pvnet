@@ -121,7 +121,8 @@ def validate_batch_against_config(
                 raise ValueError(msg)
 
             if actual_seq < enc.sequence_length:
-                raise ValueError(f"NWP.{source} too short: exp {enc.sequence_length}, got {actual_seq}")
+                msg = f"NWP.{source} too short: exp {enc.sequence_length}, got {actual_seq}"
+                raise ValueError(msg)
 
     # Satellite validation
     if model.include_sat:
