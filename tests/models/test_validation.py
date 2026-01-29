@@ -70,11 +70,14 @@ def test_validate_batch_against_shorter_sequence(late_fusion_model):
     actual_ch = enc.in_channels - int(late_fusion_model.add_image_embedding_channel)
     
     short_sat = {
-        "satellite_actual": torch.randn(1,
-                                        1,
-                                        actual_ch,
-                                        enc.image_size_pixels,
-                                        enc.image_size_pixels),
+        "satellite_actual": torch.randn
+        (
+            1,
+            1,
+            actual_ch,
+            enc.image_size_pixels,
+            enc.image_size_pixels
+        ),
     }
     with pytest.raises(ValueError, match="Sat too short"):
         validate_batch_against_config(batch=short_sat, model=late_fusion_model)
@@ -89,11 +92,14 @@ def test_validate_batch_against_shorter_sequence(late_fusion_model):
     short_nwp = {
         "nwp": {
             source: {
-                "nwp": torch.randn(1, 
-                                   1, 
-                                   nwp_ch, 
-                                   nwp_enc.image_size_pixels, 
-                                   nwp_enc.image_size_pixels)
+                "nwp": torch.randn
+                (
+                    1,
+                    1, 
+                    nwp_ch, 
+                    nwp_enc.image_size_pixels,
+                    nwp_enc.image_size_pixels
+                )
             }
         }
     }
