@@ -64,20 +64,38 @@ def test_validate_batch_longer_sequence(batch, late_fusion_model):
 def test_validate_batch_against_shorter_sequence(late_fusion_model):
     """Test validation raises error when sequence shorter than required"""
 
-    # Configured for sat only as of the moment
+    # Sat shorter testing
     late_fusion_model.include_nwp = False 
     enc = late_fusion_model.sat_encoder
     actual_ch = enc.in_channels - int(late_fusion_model.add_image_embedding_channel)
     
-    short_batch = {
-        "satellite_actual": torch.randn(
-            1, 
-            1,
-            actual_ch, 
-            enc.image_size_pixels, 
-            enc.image_size_pixels
-        ),
+    short_sat = {
+        "satellite_actual": torch.randn(1,
+                                        1,
+                                        actual_ch,
+                                        enc.image_size_pixels,
+                                        enc.image_size_pixels),
     }
-    
     with pytest.raises(ValueError, match="Sat too short"):
-        validate_batch_against_config(batch=short_batch, model=late_fusion_model)
+        validate_batch_against_config(batch=short_sat, model=late_fusion_model)
+
+    # NWP shorter testing
+    late_fusion_model.include_nwp = True
+    late_fusion_model.include_sat = False
+    source = list(late_fusion_model.nwp_encoders_dict.keys())[0]
+    nwp_enc = late_fusion_model.nwp_encoders_dict[source]
+    nwp_ch = nwp_enc.in_channels - int(late_fusion_model.add_image_embedding_channel)
+
+    short_nwp = {
+        "nwp": {
+            source: {
+                "nwp": torch.randn(1, 
+                                   1, 
+                                   nwp_ch, 
+                                   nwp_enc.image_size_pixels, 
+                                   nwp_enc.image_size_pixels)
+            }
+        }
+    }
+    with pytest.raises(ValueError, match=f"NWP.{source} too short"):
+        validate_batch_against_config(batch=short_nwp, model=late_fusion_model)
