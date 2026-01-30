@@ -140,6 +140,20 @@ def validate_batch_against_config(
         if actual_seq < enc.sequence_length:
             raise ValueError(f"Sat too short: exp {enc.sequence_length}, got {actual_seq}")
 
+    # Solar validation
+    if getattr(model, "include_sun", False):
+        t_key = getattr(model, "target_key", "gsp")
+        exp_len = model.history_len + model.forecast_len + 1
+        exp_sites = batch[t_key].shape[-1] if t_key in batch else None
+
+        for key in ["solar_azimuth", "solar_elevation"]:
+            if (sun := batch.get(key)) is not None:
+                if sun.shape[1] < exp_len:
+                    raise ValueError(f"Sun {key} too short")
+                
+                if sun.ndim > 2 and exp_sites and sun.shape[-1] != exp_sites:
+                    raise ValueError(f"Sun {key} site mismatch")    
+    
     key = "generation"
     if key in batch:
         total_minutes = model.history_minutes + model.forecast_minutes
