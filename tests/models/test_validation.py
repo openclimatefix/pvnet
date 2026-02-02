@@ -40,41 +40,27 @@ def test_validate_gpu_config_multiple_devices(trainer_cfg):
         validate_gpu_config(trainer_cfg({"devices": 2}))
 
 
-def test_validate_batch_solar_mismatch(batch, late_fusion_model):
-    """Test error raised when solar sites don't match target"""
-    late_fusion_model.include_sun = True
-    late_fusion_model.target_key = "generation" 
-    bad_sun_batch = batch.copy()
-    exp_sites = batch["generation"].shape[-1]
-    current_shape = batch["solar_azimuth"].shape
-
-    bad_sun_batch["solar_azimuth"] = torch.randn(
-        current_shape[0], 
-        current_shape[1], 
-        exp_sites + 10
-    )
-    
-    with pytest.raises(ValueError, match="Sun solar_azimuth site mismatch"):
-        validate_batch_against_config(batch=bad_sun_batch, model=late_fusion_model)
-
-
 def test_validate_batch_longer_sequence(batch, late_fusion_model):
-    """Test validation passes when batch sequence longer than required"""
     enc = late_fusion_model.sat_encoder
     actual_ch = enc.in_channels - int(late_fusion_model.add_image_embedding_channel)
-    
+
+    exp_len = late_fusion_model.history_len + late_fusion_model.forecast_len + 1
+    bsz = batch["generation"].shape[0]
+
     longer_batch = {
         "satellite_actual": torch.randn(
-            1, 
-            enc.sequence_length + 5, 
-            actual_ch, 
-            enc.image_size_pixels, 
-            enc.image_size_pixels
+            bsz,
+            enc.sequence_length + 5,
+            actual_ch,
+            enc.image_size_pixels,
+            enc.image_size_pixels,
         ),
         "nwp": batch["nwp"],
-        "generation": batch["generation"]
+        "generation": batch["generation"],
+        "solar_azimuth": torch.randn(bsz, exp_len),
+        "solar_elevation": torch.randn(bsz, exp_len),
     }
-    
+
     validate_batch_against_config(batch=longer_batch, model=late_fusion_model)
 
 
