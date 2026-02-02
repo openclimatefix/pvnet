@@ -41,23 +41,28 @@ def test_validate_gpu_config_multiple_devices(trainer_cfg):
 
 
 def test_validate_batch_longer_sequence(batch, late_fusion_model):
-    """Test validation passes when batch sequence longer than required"""
+    """Test validation raises error when solar longer than required"""
+
     enc = late_fusion_model.sat_encoder
     actual_ch = enc.in_channels - int(late_fusion_model.add_image_embedding_channel)
-    
+    exp_len = late_fusion_model.history_len + late_fusion_model.forecast_len + 1
+
     longer_batch = {
         "satellite_actual": torch.randn(
-            1, 
-            enc.sequence_length + 5, 
-            actual_ch, 
-            enc.image_size_pixels, 
-            enc.image_size_pixels
+            1,
+            enc.sequence_length,
+            actual_ch,
+            enc.image_size_pixels,
+            enc.image_size_pixels,
         ),
         "nwp": batch["nwp"],
-        "generation": batch["generation"]
+        "generation": batch["generation"],
+        "solar_azimuth": torch.randn(1, exp_len + 1),
+        "solar_elevation": torch.randn(1, exp_len + 1),
     }
-    
-    validate_batch_against_config(batch=longer_batch, model=late_fusion_model)
+
+    with pytest.raises(ValueError, match=r"Sun .* mismatch"):
+        validate_batch_against_config(batch=longer_batch, model=late_fusion_model)
 
 
 def test_validate_batch_against_shorter_sequence(late_fusion_model):

@@ -140,6 +140,18 @@ def validate_batch_against_config(
         if actual_seq < enc.sequence_length:
             raise ValueError(f"Sat too short: exp {enc.sequence_length}, got {actual_seq}")
 
+    if model.include_sun:
+        exp_len = model.history_len + model.forecast_len + 1
+
+        for key in ("solar_azimuth", "solar_elevation"):
+            if (sun := batch.get(key)) is None:
+                raise ValueError(f"Model uses solar data but '{key}' missing from batch.")
+
+            _, actual_seq = sun.shape[:2]
+
+        if actual_seq != exp_len:
+            raise ValueError(f"Sun {key} mismatch: exp {exp_len}, got {actual_seq}")
+
     key = "generation"
     if key in batch:
         total_minutes = model.history_minutes + model.forecast_minutes
