@@ -150,3 +150,9 @@ dmypy.json
 
 # vim
 *swp
+
+# uv
+uv.lock
+
+# vscode
+.vscode/
