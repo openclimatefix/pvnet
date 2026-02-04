@@ -147,10 +147,10 @@ def validate_batch_against_config(
             if (sun := batch.get(key)) is None:
                 raise ValueError(f"Model uses solar data but '{key}' missing from batch.")
 
-            _, actual_seq = sun.shape[:2]
+            actual_seq = sun.shape[1]
 
-        if actual_seq != exp_len:
-            raise ValueError(f"Sun {key} mismatch: exp {exp_len}, got {actual_seq}")
+            if actual_seq != exp_len:
+                raise ValueError(f"Sun {key} mismatch: exp {exp_len}, got {actual_seq}")
 
     key = "generation"
     if key in batch:
