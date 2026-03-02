@@ -4,7 +4,7 @@ A script to run backtest for PVNet and the summation model for UK regional and n
 Use:
 
 - This script uses exported PVNet and PVNet summation models stored either locally or on huggingface
-- The save directory, model paths, the backtest time range, the input data paths, and number of 
+- The save directory, model paths, the backtest time range, the input data paths, and number of
   workers used are near the top of the script as hard-coded user variables. These should be changed.
 
 
@@ -53,8 +53,8 @@ summation_model_name: str | None = "openclimatefix-models/pvnet_v2_summation"
 summation_model_version: str | None = "d746683893330fe3380e57e65d40812daa343c8e"
 
 # Forecasts will be made for all available init-times between these. If set to None, predictions
-# will be made for all init-times avaiable accordng to the input data
-start_datetime: str | None = "2022-01-01 00:00" 
+# will be made for all init-times available according to the input data
+start_datetime: str | None = "2022-01-01 00:00"
 end_datetime: str | None = "2022-12-31 23:30"
 
 # The paths to the input data for the backtest
@@ -65,13 +65,13 @@ backtest_paths = {
             "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ukv_v7/UKV_intermediate_version_7.1.zarr",
             "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ukv_v7/UKV_2021_missing.zarr",
             "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ukv_v7/UKV_2022.zarr",
-        ], 
+        ],
         "ecmwf": [
             "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ecmwf_v3/ECMWF_2019.zarr",
             "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ecmwf_v3/ECMWF_2020.zarr",
             "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ecmwf_v3/ECMWF_2021.zarr",
             "/mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ecmwf_v3/ECMWF_2022.zarr",
-        ], 
+        ],
         "cloudcasting": "/mnt/raphael/fast/cloudcasting/simvp.zarr",
     },
     "satellite": [
@@ -102,6 +102,7 @@ _model_mismatch_msg = (
     "may lead to unreliable results even if the shapes match."
 )
 
+
 def populate_config_with_data_data_filepaths(config: dict) -> dict:
     """Populate the data source filepaths in the config
 
@@ -110,7 +111,7 @@ def populate_config_with_data_data_filepaths(config: dict) -> dict:
     """
 
     # Replace the GSP data path
-    config["input_data"]["gsp"]["zarr_path"] =  backtest_paths["gsp"]
+    config["input_data"]["gsp"]["zarr_path"] = backtest_paths["gsp"]
 
     # Replace satellite data path if using it
     if "satellite" in config["input_data"]:
@@ -135,7 +136,6 @@ def overwrite_config_dropouts(config: dict) -> dict:
         config: The data config
     """
     if "satellite" in config["input_data"]:
-
         satellite_config = config["input_data"]["satellite"]
 
         if satellite_config["zarr_path"] != "":
@@ -143,7 +143,7 @@ def overwrite_config_dropouts(config: dict) -> dict:
             satellite_config["dropout_fraction"] = 0
 
     # Don't modify NWP dropout since this accounts for the expected NWP delay
-    
+
     return config
 
 
@@ -175,21 +175,28 @@ class Forecaster:
     """Class for making and solar forecasts for all GB GSPs and national total"""
 
     def __init__(self):
-        """Class for making and solar forecasts for all GB GSPs and national total
-        """
-        
+        """Class for making and solar forecasts for all GB GSPs and national total"""
+
         # Load the GSP-level model
-        self.model = PVNetBaseModel.from_pretrained(
-            model_id=pvnet_model_name,
-            revision=pvnet_model_version,
-        ).to(device).eval()
+        self.model = (
+            PVNetBaseModel.from_pretrained(
+                model_id=pvnet_model_name,
+                revision=pvnet_model_version,
+            )
+            .to(device)
+            .eval()
+        )
 
         # Load the summation model
         if summation_model_name is not None:
-            self.sum_model = SummationBaseModel.from_pretrained(
-                model_id=summation_model_name,
-                revision=summation_model_version,
-            ).to(device).eval()
+            self.sum_model = (
+                SummationBaseModel.from_pretrained(
+                    model_id=summation_model_name,
+                    revision=summation_model_version,
+                )
+                .to(device)
+                .eval()
+            )
 
             # Compare the current GSP model with the one the summation model was trained on
             datamodule_path = SummationBaseModel.get_datamodule_config(
@@ -207,17 +214,17 @@ class Forecaster:
 
         # These are the steps this forecast will predict for
         self.steps = pd.timedelta_range(
-            start="30min", 
-            freq="30min", 
+            start="30min",
+            freq="30min",
             periods=self.model.forecast_len,
         )
 
     @torch.inference_mode()
     def predict(self, sample: dict) -> xr.Dataset:
         """Make predictions for the batch and store results internally"""
-        
+
         x = copy_batch_to_device(batch_to_tensor(sample["pvnet_inputs"]), device)
-        
+
         # Run batch through model
         normed_preds = self.model(x).detach().cpu().numpy()
 
@@ -225,7 +232,7 @@ class Forecaster:
         # The dataloader normalises solar elevation data to the range [0, 1]
         elevation_degrees = (sample["pvnet_inputs"]["solar_elevation"] - 0.5) * 180
         # We only need elevation mask for forecasted values, not history
-        elevation_degrees = elevation_degrees[:, -normed_preds.shape[1]:]
+        elevation_degrees = elevation_degrees[:, -normed_preds.shape[1] :]
         sun_down_masks = elevation_degrees < MIN_DAY_ELEVATION
 
         # Convert GSP results to xarray DataArray
@@ -243,10 +250,10 @@ class Forecaster:
 
         # Multiply normalised forecasts by capacities and clip negatives
         da_abs = (
-            da_normed.clip(0, None) 
+            da_normed.clip(0, None)
             * sample["pvnet_inputs"]["gsp_effective_capacity_mwp"][None, :, None, None].numpy()
         )
-        
+
         # Apply sundown mask
         da_abs = da_abs.where(~da_sundown_mask).fillna(0.0)
 
@@ -275,7 +282,7 @@ class Forecaster:
 
             # Convert to Dataset and add attrs about the models used
             da_abs = xr.concat([da_abs_national, da_abs], dim="gsp_id")
-            
+
         da_abs = da_abs.to_dataset(name="hindcast")
         da_abs.attrs.update(
             {
@@ -310,11 +317,11 @@ class Forecaster:
 
         return xr.DataArray(data=preds[np.newaxis, ...], dims=dims, coords=coords)
 
+
 # ------------------------------------------------------------------
 # RUN
 
-if __name__=="__main__":
-
+if __name__ == "__main__":
     # Set up output dir
     os.makedirs(output_dir, exist_ok=False)
 
@@ -334,7 +341,6 @@ if __name__=="__main__":
     with open(modified_data_config_filepath, "w") as file:
         yaml.dump(data_config, file, default_flow_style=False)
 
-
     dataset = BacktestStreamedDataset(
         config_filename=modified_data_config_filepath,
         start_time=start_datetime,
@@ -343,8 +349,8 @@ if __name__=="__main__":
 
     dataloader_kwargs = dict(
         num_workers=num_workers,
-        prefetch_factor=2 if num_workers>0 else None,
-        multiprocessing_context="spawn" if num_workers>0 else None,
+        prefetch_factor=2 if num_workers > 0 else None,
+        multiprocessing_context="spawn" if num_workers > 0 else None,
         shuffle=False,
         batch_size=None,
         sampler=None,
@@ -356,7 +362,7 @@ if __name__=="__main__":
         persistent_workers=False,
     )
 
-    if num_workers>0:
+    if num_workers > 0:
         dataset.presave_pickle(f"{output_dir}/dataset.pkl")
 
     dataloader = DataLoader(dataset, **dataloader_kwargs)
@@ -379,10 +385,10 @@ if __name__=="__main__":
     pbar.close()
 
     # Clean up
-    if num_workers>0:
+    if num_workers > 0:
         os.remove(f"{output_dir}/dataset.pkl")
 
-    # Reload all the forecasts and resave as single zarr
+    # Reload all the forecasts and resave as single zarr
     ds_all_forecast = xr.open_mfdataset(f"{output_dir}/*.nc", parallel=True).compute()
     ds_all_forecast = ds_all_forecast.chunk({"init_time_utc": 32})
     ds_all_forecast.to_zarr(f"{output_dir}.zarr")

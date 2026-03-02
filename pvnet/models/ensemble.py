@@ -1,4 +1,5 @@
-"""Model which uses mutliple prediction heads"""
+"""Model which uses multiple prediction heads"""
+
 import torch
 from ocf_data_sampler.numpy_sample.common_types import TensorBatch
 from torch import nn
