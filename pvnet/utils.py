@@ -98,7 +98,7 @@ def validate_batch_against_config(
     model: "BaseModel",
 ) -> None:
     """Validates tensor shapes in batch against model configuration."""
-    logger.info("Performing batch shape validation against model config.")
+    logger.info("Performing batch shape validation against model config...")
 
     # NWP validation
     if model.include_nwp:
@@ -163,7 +163,7 @@ def validate_batch_against_config(
                 f"Generation data shape mismatch: expected {expected_shape}, got {actual_shape}"
             )
 
-    logger.info("Batch shape validation successful!")
+    logger.info("Batch shape validation successful.")
 
 
 def validate_gpu_config(config: DictConfig) -> None:
