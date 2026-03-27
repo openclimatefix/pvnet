@@ -13,7 +13,7 @@ from pvnet.models.late_fusion.site_encoders.basic_blocks import AbstractSitesEnc
 class SimpleLearnedAggregator(AbstractSitesEncoder):
     """A simple model which learns a different weighted-average across all PV sites for each GSP.
 
-    Each sequence from each site is independently encodeded through some dense layers wih skip-
+    Each sequence from each site is independently encoded through some dense layers with skip-
     connections, then the encoded form of each sequence is aggregated through a learned weighted-sum
     and finally put through more dense layers.
 

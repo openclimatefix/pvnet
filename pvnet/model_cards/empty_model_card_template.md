@@ -30,7 +30,7 @@ The model is trained on data from 2019-2022 and validated on data from 2022-2023
 See the data_config.yaml file for more information on the channels and window-size used for each input data source.
 -->
 
-<!-- The preprocessing section is not strictly nessessary but perhaps nice to have -->
+<!-- The preprocessing section is not strictly necessary but perhaps nice to have -->
 ### Preprocessing
 
 <!-- eg.

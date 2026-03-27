@@ -92,7 +92,7 @@ def main(project: str, runs: list[str], run_names: list[str]) -> None:
     print(separator)
     for grouping in groupings:
         group_string = f"| {grouping[0]}-{grouping[1]} minutes |"
-        # Select indicies from column_timesteps that are within the grouping, inclusive
+        # Select indices from column_timesteps that are within the grouping, inclusive
         group_idx = [
             idx
             for idx, timestep in enumerate(column_timesteps)
@@ -110,7 +110,7 @@ def main(project: str, runs: list[str], run_names: list[str]) -> None:
     groups_df = pd.DataFrame(groups_df, columns=run_names, index=grouping_starts)
 
     for idx, df in enumerate(dfs):
-        print(f"{run_names[idx]}: {df.mean()*100:0.3f}")
+        print(f"{run_names[idx]}: {df.mean() * 100:0.3f}")
 
     # Plot the error per timestep
     plt.figure()

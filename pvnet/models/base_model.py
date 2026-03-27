@@ -416,7 +416,7 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         self.output_quantiles = output_quantiles
         self.interval_minutes = interval_minutes
 
-        # Number of timestemps for 30 minutely data
+        # Number of timestamps for 30 minutely data
         self.history_len = history_minutes // interval_minutes
         self.forecast_len = (forecast_minutes) // interval_minutes
 
