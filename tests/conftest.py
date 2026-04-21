@@ -197,6 +197,8 @@ def data_config_path(
 @pytest.fixture(scope="session")
 def streamed_datamodule(data_config_path) -> PVNetDataModule:
     dm = PVNetDataModule(
+        train_periods=[[None, None]],
+        val_periods=[[None, None]],
         configuration=data_config_path,
         batch_size=2,
         num_workers=0,

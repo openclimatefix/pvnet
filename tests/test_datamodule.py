@@ -10,6 +10,6 @@ def test_data_module(data_config_path):
         batch_size=2,
         num_workers=0,
         prefetch_factor=None,
-        train_period=[None, None],
-        val_period=[None, None],
+        train_periods=[[None, None]],
+        val_periods=[[None, None]],
     )
