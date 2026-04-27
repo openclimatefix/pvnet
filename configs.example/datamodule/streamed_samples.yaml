@@ -8,12 +8,12 @@ prefetch_factor: 2
 persistent_workers: false
 batch_size: 8
 
-train_period:
-  - null
-  - "2022-05-07"
-val_period:
-  - "2022-05-08"
-  - "2023-05-08"
+train_periods:
+  - [null, '2021-12-31']
+  - ['2023-01-01', '2025-12-31']
+    
+val_periods:
+  - ['2022-01-01', '2022-12-31']
 
 seed: "${seed}"
 

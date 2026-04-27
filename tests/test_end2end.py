@@ -10,6 +10,8 @@ def test_model_trainer_fit(session_tmp_path, data_config_path, late_fusion_model
 
     datamodule = PVNetDataModule(
         configuration=data_config_path,
+        train_periods=[[None, None]],
+        val_periods=[[None, None]],
         batch_size=2,
         num_workers=2,
         prefetch_factor=None,

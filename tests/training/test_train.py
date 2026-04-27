@@ -110,6 +110,8 @@ def test_train_pvnet(
         "seed": 42,
         "datamodule": {
             "_target_": "pvnet.datamodule.PVNetDataModule",
+            "train_periods": [[None, None]],
+            "val_periods": [[None, None]],
             "configuration": str(data_config_path),
             "batch_size": 2,
             "num_workers": 0,
@@ -122,6 +124,7 @@ def test_train_pvnet(
         "logger": logger_cfg,
         "callbacks": ckpt_cfg,
         "trainer": trainer_cfg_cpu,
+        "model_name": "test_model",
     })
 
     pvnet_train(cfg)

@@ -12,7 +12,7 @@ readme = {file="README.md", content-type="text/markdown"}
 requires-python = ">=3.11,<3.14"
 
 dependencies = [
-    "ocf-data-sampler>=1.0.9",
+    "ocf-data-sampler>=1.0.19",
     "numpy",
     "pandas",
     "matplotlib",

@@ -22,13 +22,13 @@ class PVNetDataModule(LightningDataModule):
     def __init__(
         self,
         configuration: str,
-        batch_size: int = 16,
+        train_periods: list[tuple[None | str, None | str]],
+        val_periods: list[tuple[None | str, None | str]],
+        batch_size: int,
         num_workers: int = 0,
         prefetch_factor: int | None = None,
         persistent_workers: bool = False,
         pin_memory: bool = False,
-        train_period: list[str | None] = [None, None],
-        val_period: list[str | None] = [None, None],
         seed: int | None = None,
         dataset_pickle_dir: str | None = None,
     ):
@@ -36,6 +36,10 @@ class PVNetDataModule(LightningDataModule):
 
         Args:
             configuration: Path to ocf-data-sampler configuration file.
+            train_periods: List of (start_time, end_time) tuples for the train dataset. If 
+                start_time or end_time is None, it means that there is no lower/upper bound on the 
+                time period.
+            val_periods: List of (start_time, end_time) tuples for the validation dataset.
             batch_size: Batch size.
             num_workers: Number of workers to use in multiprocess batch loading.
             prefetch_factor: Number of batches loaded in advance by each worker.
@@ -44,8 +48,6 @@ class PVNetDataModule(LightningDataModule):
                 instances alive.
             pin_memory: If True, the data loader will copy Tensors into device/CUDA pinned memory
                 before returning them.
-            train_period: Date range filter for train dataloader.
-            val_period: Date range filter for val dataloader.
             seed: Random seed used in shuffling datasets.
             dataset_pickle_dir: Directory in which the val and train set will be presaved as
                 pickle objects. Setting this speeds up instantiation of multiple workers a lot.
@@ -53,8 +55,8 @@ class PVNetDataModule(LightningDataModule):
         super().__init__()
 
         self.configuration = configuration
-        self.train_period = train_period
-        self.val_period = val_period
+        self.train_periods = train_periods
+        self.val_periods = val_periods
         self.seed = seed
         self.dataset_pickle_dir = dataset_pickle_dir
 
@@ -79,10 +81,10 @@ class PVNetDataModule(LightningDataModule):
         # shuffled once
         if stage == "fit":
             # Prepare the train dataset
-            self.train_dataset = self._get_dataset(*self.train_period)
+            self.train_dataset = self._get_dataset(self.train_periods)
 
             # Prepare and pre-shuffle the val dataset and set seed for reproducibility
-            val_dataset = self._get_dataset(*self.val_period)
+            val_dataset = self._get_dataset(self.val_periods)
 
             shuffled_indices = np.random.default_rng(seed=self.seed).permutation(len(val_dataset))
             self.val_dataset = Subset(val_dataset, shuffled_indices)
@@ -114,8 +116,8 @@ class PVNetDataModule(LightningDataModule):
                 if os.path.exists(filepath):
                     os.remove(filepath)
 
-    def _get_dataset(self, start_time: str | None, end_time: str | None) -> PVNetDataset:
-        return PVNetDataset(self.configuration, start_time=start_time, end_time=end_time)
+    def _get_dataset(self, time_periods: list[tuple[str | None, str | None]]) -> PVNetDataset:
+        return PVNetDataset(self.configuration, time_periods=time_periods)
 
     def train_dataloader(self) -> DataLoader:
         """Construct train dataloader"""
