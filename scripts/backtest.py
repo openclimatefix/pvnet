@@ -43,7 +43,6 @@ from tqdm import tqdm
 
 from pvnet.models.base_model import BaseModel as PVNetBaseModel
 
-
 # ------------------------------------------------------------------
 
 logger = logging.getLogger(__name__)
@@ -162,7 +161,7 @@ class BacktestStreamedDataset(StreamedDataset):
 
 
 class Forecaster:
-    """Class for making and solar forecasts for all GB GSPs and national total"""
+    """Class for making and solar forecasts for all regions and optionally the national total"""
 
     def __init__(
         self,
@@ -174,6 +173,7 @@ class Forecaster:
         device: torch.device,
         
     ):
+        """Initialise the forecaster"""
         self.pvnet_model_name = pvnet_model_name
         self.pvnet_model_version = pvnet_model_version
         self.summation_model_name = summation_model_name
@@ -194,7 +194,7 @@ class Forecaster:
                 revision=summation_model_version,
             ).to(device).eval()
 
-            # Compare the current GSP model with the one the summation model was trained on
+            # Compare the current regional model with the one the summation model was trained on
             datamodule_path = SummationBaseModel.get_datamodule_config(
                 model_id=summation_model_name,
                 revision=summation_model_version,
@@ -202,11 +202,11 @@ class Forecaster:
             with open(datamodule_path) as cfg:
                 sum_pvnet_cfg = yaml.load(cfg, Loader=yaml.FullLoader)["pvnet_model"]
 
-            sum_expected_gsp_model = (sum_pvnet_cfg["model_id"], sum_pvnet_cfg["revision"])
-            this_gsp_model = (pvnet_model_name, pvnet_model_version)
+            sum_expected_reg_model = (sum_pvnet_cfg["model_id"], sum_pvnet_cfg["revision"])
+            this_reg_model = (pvnet_model_name, pvnet_model_version)
 
-            if sum_expected_gsp_model != this_gsp_model:
-                logger.warning(_model_mismatch_msg.format(*this_gsp_model, *sum_expected_gsp_model))
+            if sum_expected_reg_model != this_reg_model:
+                logger.warning(_model_mismatch_msg.format(*this_reg_model, *sum_expected_reg_model))
 
         # These are the steps this forecast will predict for
         self.steps = pd.timedelta_range(
@@ -392,6 +392,8 @@ def main(
         "multiprocessing."
     )
 ):
+    """Run the backtest"""
+
     # Treat empty strings as None
     if summation_model_name == "":
         summation_model_name = None
