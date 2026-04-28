@@ -73,7 +73,7 @@ def populate_config_with_data_data_filepaths(config: dict, data_paths: dict) -> 
         if config["input_data"]["satellite"]["zarr_path"] != "":
             config["input_data"]["satellite"]["zarr_path"] = data_paths["satellite"]
 
-    # NWP is nested so much be treated separately
+    # NWP is nested so must be treated separately
     if "nwp" in config["input_data"]:
         nwp_config = config["input_data"]["nwp"]
         for nwp_source in nwp_config.keys():
