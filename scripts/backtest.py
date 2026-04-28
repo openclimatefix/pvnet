@@ -20,6 +20,11 @@ python backtest.py \
     --num-workers 8
 ```
 
+You can also get help on the command line arguments with:
+```
+python scripts/backtest.py --help
+```
+
 """
 
 import logging
@@ -43,12 +48,7 @@ from tqdm import tqdm
 
 from pvnet.models.base_model import BaseModel as PVNetBaseModel
 
-# ------------------------------------------------------------------
-
 logger = logging.getLogger(__name__)
-
-# ------------------------------------------------------------------
-# FUNCTIONS
 
 _model_mismatch_msg = (
     "The PVNet version running in this app is {}/{}. The summation model running in this app was "
