@@ -8,7 +8,7 @@ Example command to run the backtest with models on huggingface
 ```
 python backtest.py \
     --input-data-paths example_backtest_data_config.yaml \
-    --output-dir /path/to/output \
+    --output-zarr-path /path/to/output.zarr \
     --pvnet-model-name openclimatefix-models/pvnet_uk_region \
     --pvnet-model-version xxxxxxx \
     --summation-model-name openclimatefix-models/pvnet_v2_summation \
@@ -25,7 +25,7 @@ example no solar elevation mask is applied.
 ```
 python backtest.py \
     --input-data-paths example_backtest_data_config.yaml \
-    --output-dir /path/to/output \
+    --output-zarr-path /path/to/output.zarr \
     --pvnet-model-name path/to/regional/model \
     --pvnet-model-version "" \
     --start-datetime "2022-01-01 00:00" \
@@ -44,7 +44,7 @@ python scripts/backtest.py --help
 
 import logging
 import os
-import shutil
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -369,9 +369,9 @@ def main(
         help="Path to yaml file containing paths to input data zarrs. "
         "See example_backtest_data_config.yaml for format."
     ),
-    output_dir: str = typer.Option(
+    output_zarr_path: str = typer.Option(
         ..., 
-        help="Working dir during backtest; final results saved to {output_dir}.zarr"
+        help="Path to save the backtest output zarr file"
     ),
     pvnet_model_name: str = typer.Option(
         ...,
@@ -425,78 +425,74 @@ def main(
     else:
         device = torch.device(device_name)
 
-    # Set up output dir for temporary files during backtest 
-    os.makedirs(output_dir, exist_ok=False)
-
-    zarr_path = f"{output_dir}.zarr"
-    if os.path.exists(zarr_path):
+    if os.path.exists(output_zarr_path):
         raise FileExistsError(
-            f"Output zarr path {zarr_path} already exists. Please choose a different output_dir "
-            "or remove the existing zarr."
+            f"Output zarr path {output_zarr_path} already exists. Please choose a different  "
+            "output_dir or remove the existing zarr."
         )
 
-    model_data_config_filepath = f"{output_dir}/data_config.yaml"
+    with tempfile.TemporaryDirectory() as tmp_dir:
 
-    construct_model_data_config(
-        pvnet_model_name=pvnet_model_name, 
-        pvnet_model_version=pvnet_model_version, 
-        input_data_paths=input_data_paths, 
-        output_path=model_data_config_filepath
-    )
+        model_data_config_filepath = f"{tmp_dir}/data_config.yaml"
 
-    dataset = BacktestStreamedDataset(
-        config_filename=model_data_config_filepath,
-        time_periods=[[start_datetime, end_datetime]],
-    )
+        construct_model_data_config(
+            pvnet_model_name=pvnet_model_name, 
+            pvnet_model_version=pvnet_model_version, 
+            input_data_paths=input_data_paths, 
+            output_path=model_data_config_filepath
+        )
 
-    if num_workers>0:
-        dataset.presave_pickle(f"{output_dir}/dataset.pkl")
+        dataset = BacktestStreamedDataset(
+            config_filename=model_data_config_filepath,
+            time_periods=[[start_datetime, end_datetime]],
+        )
 
-    dataloader = DataLoader(
-        dataset,
-        num_workers=num_workers,
-        prefetch_factor=2 if num_workers>0 else None,
-        multiprocessing_context="forkserver" if num_workers>0 else None,
-        shuffle=False,
-        batch_size=None,
-        sampler=None,
-        batch_sampler=None,
-        collate_fn=None,
-        drop_last=False,
-        timeout=0,
-        worker_init_fn=None,
-        persistent_workers=False,                       
-    )
+        if num_workers>0:
+            dataset.presave_pickle(f"{tmp_dir}/dataset.pkl")
 
-    forecaster = Forecaster(
-        pvnet_model_name=pvnet_model_name,
-        pvnet_model_version=pvnet_model_version,
-        summation_model_name=summation_model_name,
-        summation_model_version=summation_model_version,
-        min_solar_elevation=min_solar_elevation,
-        device=device,
-    )
+        dataloader = DataLoader(
+            dataset,
+            num_workers=num_workers,
+            prefetch_factor=2 if num_workers>0 else None,
+            multiprocessing_context="forkserver" if num_workers>0 else None,
+            shuffle=False,
+            batch_size=None,
+            sampler=None,
+            batch_sampler=None,
+            collate_fn=None,
+            drop_last=False,
+            timeout=0,
+            worker_init_fn=None,
+            persistent_workers=False,                       
+        )
 
-    # Loop through the batches
-    pbar = tqdm(total=len(dataloader))
-    
-    for i, sample in enumerate(dataloader):
-        # Make predictions for the init-time
-        ds_abs_all = forecaster.predict(sample)
+        forecaster = Forecaster(
+            pvnet_model_name=pvnet_model_name,
+            pvnet_model_version=pvnet_model_version,
+            summation_model_name=summation_model_name,
+            summation_model_version=summation_model_version,
+            min_solar_elevation=min_solar_elevation,
+            device=device,
+        )
+
+        # Loop through the batches
+        pbar = tqdm(total=len(dataloader))
         
-        # Save the results to zarr, appending if this is not the first forecast
-        if i == 0:
-            encoding = create_zarr_encoding(ds_abs_all)
-            ds_abs_all.to_zarr(zarr_path, mode="w-", encoding=encoding, consolidated=False)
-        else:
-            ds_abs_all.to_zarr(zarr_path, mode="a", append_dim="init_time_utc", consolidated=False)
+        for i, sample in enumerate(dataloader):
+            # Make predictions for the init-time
+            ds_abs_all = forecaster.predict(sample)
+            
+            # Save the results to zarr, appending if this is not the first forecast
+            if i == 0:
+                save_kwrgs = {"mode": "w-", "encoding": create_zarr_encoding(ds_abs_all)}
+            else:
+                save_kwrgs = {"mode": "a", "append_dim": "init_time_utc"}
+            
+            ds_abs_all.to_zarr(output_zarr_path, consolidated=False, **save_kwrgs)
 
-        pbar.update()
+            pbar.update()
 
-    pbar.close()
-
-    # Clean up temporary files
-    shutil.rmtree(output_dir)
+        pbar.close()
 
 
 if __name__ == "__main__":
