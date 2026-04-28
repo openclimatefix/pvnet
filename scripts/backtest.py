@@ -57,7 +57,7 @@ _model_mismatch_msg = (
     "may lead to unreliable results even if the shapes match."
 )
 
-def populate_config_with_data_data_filepaths(config: dict, data_paths: dict) -> dict:
+def populate_config_with_data_filepaths(config: dict, data_paths: dict) -> dict:
     """Populate the data source filepaths in the config
 
     Args:
@@ -70,8 +70,7 @@ def populate_config_with_data_data_filepaths(config: dict, data_paths: dict) -> 
 
     # Replace satellite data path if using it
     if "satellite" in config["input_data"]:
-        if config["input_data"]["satellite"]["zarr_path"] != "":
-            config["input_data"]["satellite"]["zarr_path"] = data_paths["satellite"]
+        config["input_data"]["satellite"]["zarr_path"] = data_paths["satellite"]
 
     # NWP is nested so must be treated separately
     if "nwp" in config["input_data"]:
@@ -93,8 +92,12 @@ def overwrite_config_dropouts(config: dict) -> dict:
     if "satellite" in config["input_data"]:
 
         satellite_config = config["input_data"]["satellite"]
-
-        if satellite_config["zarr_path"] != "":
+        p_drop = satellite_config["dropout_fraction"]
+        if p_drop > 0:
+            logger.warning(
+                f"Satellite dropout is enabled in the config with dropout_fraction {p_drop}. This "
+                "will be overwritten to 0 for the backtest."
+            )
             satellite_config["dropout_timedeltas_minutes"] = []
             satellite_config["dropout_fraction"] = 0
 
@@ -129,7 +132,7 @@ def construct_model_data_config(
     with open(input_data_paths) as file:
         input_data_config = yaml.load(file, Loader=yaml.FullLoader)
 
-    data_config = populate_config_with_data_data_filepaths(model_data_config, input_data_config)
+    data_config = populate_config_with_data_filepaths(model_data_config, input_data_config)
     data_config = overwrite_config_dropouts(data_config)
 
     with open(output_path, "w") as file:
@@ -280,9 +283,9 @@ class Forecaster:
                         other=0.0,
                 )
 
-            # Convert to Dataset and add attrs about the models used
             da_abs = xr.concat([da_abs_national, da_abs], dim="location_id")
-            
+        
+        # Convert to Dataset and add attrs about the models used
         da_abs = da_abs.to_dataset(name="hindcast")
         da_abs.attrs.update(
             {
