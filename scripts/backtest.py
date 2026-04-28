@@ -428,7 +428,7 @@ def main(
     if os.path.exists(output_zarr_path):
         raise FileExistsError(
             f"Output zarr path {output_zarr_path} already exists. Please choose a different  "
-            "output_dir or remove the existing zarr."
+            "`output_zarr_path` or remove the existing zarr."
         )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
