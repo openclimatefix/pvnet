@@ -1,0 +1,15 @@
+# Example backtest data config file
+generation: /mnt/storage_u2_30tb_a/source_data/pvlive_generation_regions_20251204_clean.zarr
+nwp:
+    ukv: /mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/mo-um-ukv.zarr
+    ecmwf:
+        - /mnt/storage_u2_30tb_a/ml_training_zarrs/nwp/ecmwf-hres-ifs-west-europe.zarr
+
+satellite:
+     - /mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v6_symlink_minimal/rss-2019-3000m-uk-only.zarr
+     - /mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v6_symlink_minimal/rss-2020-3000m-uk-only.zarr
+     - /mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v6_symlink_minimal/rss-2021-3000m-uk-only.zarr
+     - /mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v6_symlink_minimal/rss-2022-3000m-uk-only.zarr
+     - /mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v6_symlink_minimal/rss-2023-3000m-uk-only.zarr
+     - /mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v6_symlink_minimal/rss-2024-3000m-uk-only.zarr
+     - /mnt/storage_u2_30tb_a/ml_training_zarrs/sat/uk_sat_crops/v6_symlink_minimal/rss-2025-3000m-uk-only.zarr
