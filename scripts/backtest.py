@@ -161,7 +161,7 @@ class BacktestStreamedDataset(StreamedDataset):
 
 
 class Forecaster:
-    """Class for making and solar forecasts for all regions and optionally the national total"""
+    """Class for making solar forecasts for all regions and optionally the national total"""
 
     def __init__(
         self,
