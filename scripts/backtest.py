@@ -107,8 +107,7 @@ def overwrite_config_dropouts(config: dict) -> dict:
     if "satellite" in config["input_data"]:
 
         satellite_config = config["input_data"]["satellite"]
-        p_drop = satellite_config["dropout_fraction"]
-        if p_drop > 0:
+        if (p_drop := satellite_config["dropout_fraction"]) > 0:
             logger.warning(
                 f"Satellite dropout is enabled in the config with dropout_fraction {p_drop}. This "
                 "will be overwritten to 0 for the backtest."
@@ -429,6 +428,13 @@ def main(
     # Set up output dir for temporary files during backtest 
     os.makedirs(output_dir, exist_ok=False)
 
+    zarr_path = f"{output_dir}.zarr"
+    if os.path.exists(zarr_path):
+        raise FileExistsError(
+            f"Output zarr path {zarr_path} already exists. Please choose a different output_dir "
+            "or remove the existing zarr."
+        )
+
     model_data_config_filepath = f"{output_dir}/data_config.yaml"
 
     construct_model_data_config(
@@ -472,7 +478,6 @@ def main(
     )
 
     # Loop through the batches
-    zarr_path = f"{output_dir}.zarr"
     pbar = tqdm(total=len(dataloader))
     
     for i, sample in enumerate(dataloader):
@@ -482,7 +487,7 @@ def main(
         # Save the results to zarr, appending if this is not the first forecast
         if i == 0:
             encoding = create_zarr_encoding(ds_abs_all)
-            ds_abs_all.to_zarr(zarr_path, mode="w", encoding=encoding, consolidated=False)
+            ds_abs_all.to_zarr(zarr_path, mode="w-", encoding=encoding, consolidated=False)
         else:
             ds_abs_all.to_zarr(zarr_path, mode="a", append_dim="init_time_utc", consolidated=False)
 
