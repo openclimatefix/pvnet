@@ -4,7 +4,7 @@ This script uses exported PVNet and PVNet summation models stored either locally
 See example_backtest_data_config.yaml for the expected format of the input data config yaml file.
 
 
-Example command to run the backtest:
+Example command to run the backtest with models on huggingface
 ```
 python backtest.py \
     --input-data-paths example_backtest_data_config.yaml \
@@ -19,6 +19,21 @@ python backtest.py \
     --device-name 'cuda:0' \
     --num-workers 8
 ```
+
+Example to run the backtest with locally-saved regional models and no summation model. Also in this
+example no solar elevation mask is applied.
+```
+python backtest.py \
+    --input-data-paths example_backtest_data_config.yaml \
+    --output-dir /path/to/output \
+    --pvnet-model-name path/to/regional/model \
+    --pvnet-model-version "" \
+    --start-datetime "2022-01-01 00:00" \
+    --end-datetime "2022-12-31 23:30" \
+    --device-name 'cuda:1' \
+    --num-workers 8
+```
+
 
 You can also get help on the command line arguments with:
 ```
@@ -174,15 +189,14 @@ class Forecaster:
         summation_model_version: str | None,
         min_solar_elevation: float | None,
         device: torch.device,
-        
     ):
         """Initialise the forecaster"""
         self.pvnet_model_name = pvnet_model_name
         self.pvnet_model_version = pvnet_model_version
         self.summation_model_name = summation_model_name
         self.summation_model_version = summation_model_version
-        self.device = device
         self.min_solar_elevation = min_solar_elevation
+        self.device = device
         
         # Load the regional model
         self.model = PVNetBaseModel.from_pretrained(
@@ -293,6 +307,10 @@ class Forecaster:
                 "pvnet_model_version": self.pvnet_model_version or "none",
                 "summation_model_name": self.summation_model_name or "none",
                 "summation_model_version": self.summation_model_version or "none",
+                "min_solar_elevation": (
+                    self.min_solar_elevation if self.min_solar_elevation is not None else "none",
+                ),
+                "date_of_backtest": pd.Timestamp.now().isoformat(),
             }
         )
 
