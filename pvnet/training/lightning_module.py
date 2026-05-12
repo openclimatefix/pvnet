@@ -206,23 +206,25 @@ class PVNetLightningModule(pl.LightningModule):
             if self.trainer.sanity_checking and plot_num == 0:
                 validate_batch_against_config(batch=batch, model=self.model)
 
-            with torch.no_grad():
+            # Save example forecast plots via logger
+            if self.logger:
                 y_hat = self.model(batch)
 
-            fig = plot_sample_forecasts(
-                batch,
-                y_hat,
-                quantiles=self.model.output_quantiles,
-                key_to_plot="generation",
-            )
+                fig = plot_sample_forecasts(
+                    batch,
+                    y_hat,
+                    quantiles=self.model.output_quantiles,
+                    key_to_plot="generation",
+                )
 
-            plot_name = f"val_forecast_samples/sample_set_{plot_num}"
+                plot_name = f"val_forecast_samples/sample_set_{plot_num}"
 
-            # Disabled for testing or using no logger
-            if self.logger:
-                self.logger.experiment.log({plot_name: wandb.Image(fig)})
+                self.logger.experiment.log(
+                    {plot_name: wandb.Image(fig)},
+                    step=self.trainer.global_step,
+                )
 
-            plt.close(fig)
+                plt.close(fig)
 
     def validation_step(self, batch: TensorBatch, batch_idx: int) -> None:
         """Run validation step"""
@@ -346,7 +348,10 @@ class PVNetLightningModule(pl.LightningModule):
                 title="Val horizon loss curve",
             )
 
-            wandb.log({"val_horizon_mae_plot": horizon_mae_plot})
+            wandb.log(
+                {"val_horizon_mae_plot": horizon_mae_plot},
+                step=self.trainer.global_step,                
+            )
 
             # Create persistence horizon accuracy curve but only on first epoch
             if self.current_epoch == 0:
@@ -357,4 +362,7 @@ class PVNetLightningModule(pl.LightningModule):
                     ylabel="MAE",
                     title="Val persistence horizon loss curve",
                 )
-                wandb.log({"persistence_val_horizon_mae_plot": persist_horizon_mae_plot})
+                wandb.log(
+                    {"persistence_val_horizon_mae_plot": persist_horizon_mae_plot},
+                    step=self.trainer.global_step,
+                )
