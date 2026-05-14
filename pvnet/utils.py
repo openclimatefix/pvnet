@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import rich.syntax
 import rich.tree
 from lightning.pytorch.utilities import rank_zero_only
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, ListConfig, OmegaConf
 
 if TYPE_CHECKING:
     from pvnet.models.base_model import BaseModel
@@ -167,13 +167,27 @@ def validate_batch_against_config(
 
 
 def validate_gpu_config(config: DictConfig) -> None:
-    """Abort if multiple GPUs requested by mistake i.e. `devices: 2` instead of `[2]`."""
+    """Abort if multiple GPUs would be used. PVNet only supports single-GPU training."""
     tr = config.get("trainer", {})
     dev = tr.get("devices")
+
+    if dev == "auto":
+        raise ValueError(
+            "`devices: 'auto'` will use all available GPUs. "
+            "PVNet does not support multi-GPU training. "
+            "Set `devices: [0]` (or another single GPU index)."
+        )
 
     if isinstance(dev, int) and dev > 1:
         raise ValueError(
             f"Detected `devices: {dev}` — this requests {dev} GPUs. "
             "If you meant a specific GPU (e.g. GPU 2), use `devices: [2]`. "
             "Parallel training not supported."
+        )
+
+    if isinstance(dev, (list, tuple, ListConfig)) and len(dev) > 1:
+        raise ValueError(
+            f"`devices: {list(dev)}` requests {len(dev)} GPUs. "
+            "PVNet does not support multi-GPU training. "
+            "Use a single-element list, e.g. `devices: [0]`."
         )
