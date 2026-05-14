@@ -40,6 +40,18 @@ def test_validate_gpu_config_multiple_devices(trainer_cfg):
         validate_gpu_config(trainer_cfg({"devices": 2}))
 
 
+def test_validate_gpu_config_auto_devices(trainer_cfg):
+    """Reject devices='auto' which would use all available GPUs."""
+    with pytest.raises(ValueError, match="devices: 'auto'"):
+        validate_gpu_config(trainer_cfg({"devices": "auto"}))
+
+
+def test_validate_gpu_config_multiple_device_list(trainer_cfg):
+    """Reject explicit multi-GPU list."""
+    with pytest.raises(ValueError, match="does not support multi-GPU training"):
+        validate_gpu_config(trainer_cfg({"devices": [0, 1]}))
+
+
 def test_validate_batch_longer_sequence(batch, late_fusion_model):
     """Test validation raises error when solar longer than required"""
 
