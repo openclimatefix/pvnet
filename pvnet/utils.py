@@ -172,22 +172,24 @@ def validate_gpu_config(config: DictConfig) -> None:
     dev = tr.get("devices")
 
     if dev == "auto":
-        raise ValueError(
+        msg = (
             "`devices: 'auto'` will use all available GPUs. "
             "PVNet does not support multi-GPU training. "
             "Set `devices: [0]` (or another single GPU index)."
         )
-
-    if isinstance(dev, int) and dev > 1:
-        raise ValueError(
+    elif isinstance(dev, int) and dev > 1:
+        msg = (
             f"Detected `devices: {dev}` — this requests {dev} GPUs. "
             "If you meant a specific GPU (e.g. GPU 2), use `devices: [2]`. "
             "Parallel training not supported."
         )
-
-    if isinstance(dev, (list, tuple, ListConfig)) and len(dev) > 1:
-        raise ValueError(
+    elif isinstance(dev, (list, tuple, ListConfig)) and len(dev) > 1:
+        msg = (
             f"`devices: {list(dev)}` requests {len(dev)} GPUs. "
             "PVNet does not support multi-GPU training. "
             "Use a single-element list, e.g. `devices: [0]`."
         )
+    else:
+        return
+
+    raise ValueError(msg)
