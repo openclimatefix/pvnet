@@ -31,7 +31,8 @@ def plot_sample_forecasts(
     """Plot a batch of data and the forecast from that batch"""
 
     y = batch[key_to_plot].cpu().numpy()
-    y_hat = y_hat.cpu().numpy()    
+    y_hat = y_hat.cpu().numpy()
+    n_forecast = y_hat.shape[1]
     ids = batch["location_id"].cpu().numpy().squeeze()
     times_utc = pd.to_datetime(
         batch["time_utc"].cpu().numpy().squeeze().astype("datetime64[ns]")
@@ -42,30 +43,34 @@ def plot_sample_forecasts(
 
     for i, ax in enumerate(axes.ravel()[:batch_size]):
 
-        ax.plot(times_utc[i], y[i], marker=".", color="k", label=r"$y$")
+        # Crop to the forecast window only
+        forecast_times = times_utc[i][-n_forecast:]
+        y_no_history = y[i][-n_forecast:]
+
+        ax.plot(forecast_times, y_no_history, marker=".", color="k", label=r"$y$")
 
         if quantiles is None:
             ax.plot(
-                times_utc[i][-len(y_hat[i]) :],
-                y_hat[i], 
-                marker=".", 
-                color="r", 
+                forecast_times,
+                y_hat[i],
+                marker=".",
+                color="r",
                 label=r"$\hat{y}$",
             )
         else:
             cm = pylab.get_cmap("twilight")
             for nq, q in enumerate(quantiles):
                 ax.plot(
-                    times_utc[i][-len(y_hat[i]) :],
+                    forecast_times,
                     y_hat[i, :, nq],
                     color=cm(q),
                     label=r"$\hat{y}$" + f"({q})",
                     alpha=0.7,
                 )
 
-        ax.set_title(f"ID: {ids[i]} | {times_utc[i][0].date()}", fontsize="small")
+        ax.set_title(f"ID: {ids[i]} | {forecast_times[0].date()}", fontsize="small")
 
-        xticks = [t for t in times_utc[i] if t.minute == 0][::2]
+        xticks = [t for t in forecast_times if t.minute == 0][::2]
         ax.set_xticks(ticks=xticks, labels=[f"{t.hour:02}" for t in xticks], rotation=90)
         ax.grid()
 
