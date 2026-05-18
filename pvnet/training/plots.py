@@ -32,7 +32,7 @@ def plot_sample_forecasts(
 
     y = batch[key_to_plot].cpu().numpy()
     y_hat = y_hat.cpu().numpy()
-    n_forecast = y_hat.shape[1]
+    forecast_length = y_hat.shape[1]
     ids = batch["location_id"].cpu().numpy().squeeze()
     times_utc = pd.to_datetime(
         batch["time_utc"].cpu().numpy().squeeze().astype("datetime64[ns]")
@@ -44,8 +44,8 @@ def plot_sample_forecasts(
     for i, ax in enumerate(axes.ravel()[:batch_size]):
 
         # Crop to the forecast window only
-        forecast_times = times_utc[i][-n_forecast:]
-        y_no_history = y[i][-n_forecast:]
+        forecast_times = times_utc[i][-forecast_length:]
+        y_no_history = y[i][-forecast_length:]
 
         ax.plot(forecast_times, y_no_history, marker=".", color="k", label=r"$y$")
 
