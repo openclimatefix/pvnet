@@ -66,7 +66,7 @@ class PVNetDataModule(LightningDataModule):
             num_workers=num_workers,
             collate_fn=collate_fn,
             pin_memory=pin_memory,
-            drop_last=False,
+            drop_last=True,
             timeout=0,
             worker_init_fn=None,
             prefetch_factor=prefetch_factor,
