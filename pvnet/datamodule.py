@@ -121,7 +121,12 @@ class PVNetDataModule(LightningDataModule):
 
     def train_dataloader(self) -> DataLoader:
         """Construct train dataloader"""
-        return DataLoader(self.train_dataset, shuffle=True, drop_last=True, **self._common_dataloader_kwargs)
+        return DataLoader(
+            self.train_dataset,
+            shuffle=True,
+            drop_last=True,
+            **self._common_dataloader_kwargs
+        )
 
     def val_dataloader(self) -> DataLoader:
         """Construct val dataloader"""
