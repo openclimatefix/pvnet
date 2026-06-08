@@ -66,7 +66,6 @@ class PVNetDataModule(LightningDataModule):
             num_workers=num_workers,
             collate_fn=collate_fn,
             pin_memory=pin_memory,
-            drop_last=False,
             timeout=0,
             worker_init_fn=None,
             prefetch_factor=prefetch_factor,
@@ -121,8 +120,17 @@ class PVNetDataModule(LightningDataModule):
 
     def train_dataloader(self) -> DataLoader:
         """Construct train dataloader"""
-        return DataLoader(self.train_dataset, shuffle=True, **self._common_dataloader_kwargs)
+        return DataLoader(
+            self.train_dataset,
+            shuffle=True,
+            drop_last=True,
+            **self._common_dataloader_kwargs
+        )
 
     def val_dataloader(self) -> DataLoader:
         """Construct val dataloader"""
-        return DataLoader(self.val_dataset, shuffle=False, **self._common_dataloader_kwargs)
+        return DataLoader(
+            self.val_dataset,
+            shuffle=False,
+            drop_last=False,
+            **self._common_dataloader_kwargs)
