@@ -132,5 +132,5 @@ class PVNetDataModule(LightningDataModule):
         return DataLoader(
             self.val_dataset,
             shuffle=False,
-            drop_last=True,
+            drop_last=False,
             **self._common_dataloader_kwargs)
