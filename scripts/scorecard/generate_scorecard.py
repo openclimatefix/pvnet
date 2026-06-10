@@ -20,7 +20,8 @@ Example usage:
 python scripts/scorecard/generate_scorecard.py
 ```
 
-!Make sure all user-configured variables are set in the top section of the script.
+Use the config file at scripts/scorecard/scorecard_config.yaml to set filepaths, time window, and
+output directory.
 
 The script expects backtest files to be in the following format (standard output of the 
 backtest script):
@@ -50,11 +51,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+import yaml
 from jinja2 import Environment, FileSystemLoader
 from matplotlib.ticker import FormatStrFormatter
 from tqdm import tqdm
 from weasyprint import HTML
-import yaml
 
 # Setting the cycler to distinguishable OCF colors.
 # Comment out if not desired/replace with other colors
