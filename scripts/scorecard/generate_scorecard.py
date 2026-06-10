@@ -54,6 +54,7 @@ from jinja2 import Environment, FileSystemLoader
 from matplotlib.ticker import FormatStrFormatter
 from tqdm import tqdm
 from weasyprint import HTML
+import yaml
 
 # Setting the cycler to distinguishable OCF colors.
 # Comment out if not desired/replace with other colors
@@ -76,23 +77,9 @@ matplotlib.rcParams["axes.prop_cycle"] = matplotlib.cycler(
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 
-#____USER PROVIDED PATHS____
-
-backtest_dict = {
-    "nl_regional_48h_pv_ecmwf": 
-        "/mnt/storage_u2_30tb_a/scratch/nl_backtests/nl_val_backtests/"
-            "nl_regional_48h_pv_ecmwf_20240101T0000_20241230T1145.zarr",
-    "nl_regional_pv_ecmwf_sat": 
-        "/mnt/storage_u2_30tb_a/scratch/nl_backtests/nl_val_backtests/"
-            "nl_regional_pv_ecmwf_sat_20240101T0115_20241230T1145.zarr",
-    }
-
-y_true_path = "/mnt/storage_u2_30tb_a/ml_training_zarrs/pv/nl_generation/NL_regional.zarr"
-
-output_dir = "backtest_report_demo_val_nl_sat_ablation_2"
-
-start: np.datetime64 | None = np.datetime64("2024-01-01T00:00")
-end: np.datetime64 | None = np.datetime64("2025-01-01T00:00")
+# config = yaml.load(f"{dir_path}/scorecard_config.yaml")
+with open(f"{dir_path}/scorecard_config.yaml", "r") as f:
+    config = yaml.safe_load(f)
 
 
 #___________FUNCTIONS___________
@@ -187,7 +174,7 @@ def plot_t0_availability(ds: xr.Dataset) -> str:
     buf = BytesIO()
     plt.savefig(buf, format='png', bbox_inches='tight')
     plot_t0_availability = base64.b64encode(buf.getvalue()).decode('utf-8')
-    plt.savefig(f"{output_dir}/t0_availability.png")
+    plt.savefig(f"{config['output_dir']}/t0_availability.png")
     plt.close()
     return plot_t0_availability
 
@@ -240,7 +227,7 @@ def get_horizon_nmae_plot(ds_nmae: xr.Dataset) -> tuple[str]:
     buf = BytesIO()
     plt.savefig(buf, format='png', bbox_inches='tight')
     plot_nmae = base64.b64encode(buf.getvalue()).decode('utf-8')
-    plt.savefig(f"{output_dir}/nmae_forecast_horizon.png")
+    plt.savefig(f"{config['output_dir']}/nmae_forecast_horizon.png")
     plt.close()
 
     return plot_nmae
@@ -303,7 +290,7 @@ def get_monthly_nmae_plot_and_table(ds: xr.Dataset) -> tuple[str]:
     buf = BytesIO()
     plt.savefig(buf, format='png', bbox_inches='tight')
     plot_nmae_month = base64.b64encode(buf.getvalue()).decode('utf-8')
-    plt.savefig(f"{output_dir}/nmae_month.png")
+    plt.savefig(f"{config['output_dir']}/nmae_month.png")
     plt.close()
 
     return plot_nmae_month, nmae_by_month_html
@@ -358,7 +345,7 @@ def plot_quantile_calibration(ds: xr.Dataset) -> tuple[str]:
     buf = BytesIO()
     plt.savefig(buf, format='png', bbox_inches='tight')
     quantile_calibration_plot = base64.b64encode(buf.getvalue()).decode('utf-8')
-    plt.savefig(f"{output_dir}/quantile_calibration.png")
+    plt.savefig(f"{config['output_dir']}/quantile_calibration.png")
     plt.close()
 
     # Generate lookup table of values
@@ -388,7 +375,13 @@ def create_report(backtest_dict: dict[str, str], y_true_path: str):
 
     # 1. Load and format backtests
     ds = prep_backtests(backtest_dict, y_true=xr.open_zarr(y_true_path))
-    ds = ds.sel(init_time_utc=slice(start, end))
+
+    start_time, end_time = config['time_window']['start'], config['time_window']['end']
+    if start_time:
+        ds = ds.sel(init_time_utc=slice(config['time_window']['start'], None))
+    if end_time:
+        ds = ds.sel(init_time_utc=slice(None, config['time_window']['end']))
+
     pbar.update()
     
     # 2. Plot t0 availability
@@ -448,11 +441,14 @@ def create_report(backtest_dict: dict[str, str], y_true_path: str):
         plot_nmae_month=plot_nmae_month,
     )
 
-    output_name = f"""{output_dir}/scorecard_{'_'.join(backtest_dict.keys())}_{pd.to_datetime(
-                        str(ds.init_time_utc.min().values)
-                        ).strftime('%Y%m%dT%H%M')}_{pd.to_datetime(
-                        str(ds.init_time_utc.max().values)
-                        ).strftime('%Y%m%dT%H%M')}.pdf"""
+    output_name = f"""{config['output_dir']}/scorecard_{'_'.join(backtest_dict.keys())}_
+                        {
+                        pd.to_datetime(
+                            str(ds.init_time_utc.min().values)
+                            ).strftime('%Y%m%dT%H%M')}_{pd.to_datetime(
+                            str(ds.init_time_utc.max().values)
+                            ).strftime('%Y%m%dT%H%M')
+                        }.pdf"""
 
     HTML(string=html_out).write_pdf(output_name)
 
@@ -462,5 +458,8 @@ def create_report(backtest_dict: dict[str, str], y_true_path: str):
 
 
 if __name__ == "__main__":
-    os.makedirs(output_dir, exist_ok=False)
-    create_report(backtest_dict=backtest_dict, y_true_path=y_true_path)
+    os.makedirs(config['output_dir'], exist_ok=False)
+    create_report(
+        backtest_dict=config['input data']['backtest_dict'],
+        y_true_path=config['input data']['y_true_path']
+    )

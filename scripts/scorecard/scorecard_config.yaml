@@ -1,0 +1,11 @@
+input data:
+  backtest_dict:
+    nl_regional_48h_pv_ecmwf: "/mnt/storage_u2_30tb_a/scratch/nl_backtests/nl_val_backtests/nl_regional_48h_pv_ecmwf_20240101T0000_20241230T1145.zarr"
+    nl_regional_pv_ecmwf_sat: "/mnt/storage_u2_30tb_a/scratch/nl_backtests/nl_val_backtests/nl_regional_pv_ecmwf_sat_20240101T0115_20241230T1145.zarr"
+  y_true_path: "/mnt/storage_u2_30tb_a/ml_training_zarrs/pv/nl_generation/NL_regional.zarr"
+
+output_dir: "backtest_report_demo_val_nl_sat_ablation"
+
+time_window:
+  start: "2024-01-01T00:00"
+  end: null
