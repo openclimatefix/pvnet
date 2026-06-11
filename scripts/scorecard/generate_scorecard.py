@@ -77,8 +77,7 @@ matplotlib.rcParams["axes.prop_cycle"] = matplotlib.cycler(
 # Get file's directory to be able to locate template
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-
-# config = yaml.load(f"{dir_path}/scorecard_config.yaml")
+# Read config
 with open(f"{dir_path}/scorecard_config.yaml", "r") as f:
     config = yaml.safe_load(f)
 

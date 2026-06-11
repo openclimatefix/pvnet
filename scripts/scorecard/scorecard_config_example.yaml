@@ -1,3 +1,5 @@
+# Please make a copy of this file called "scorecard_config.yaml" before changing it
+
 input data:
   backtest_dict:
     # The dictionary has the structure of "model_name": "backtest_filepath"
