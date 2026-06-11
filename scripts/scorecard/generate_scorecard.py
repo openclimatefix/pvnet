@@ -10,13 +10,18 @@ so no data is lost if the report fails to compile.
 
 Workflow:
     1. Prepare backtests: intersect backtests by t0 and format them for processing
-    2. Generate and save out plots; generate tebles
+    2. Generate and save out plots; generate and print out tables
     3. Compile HTML report from template
     4. Export the HTML to a formatted PDF report
 
 
 Example usage:
 ```
+# Create a copy of the config and edit it
+cp scripts/scorecard/scorecard_config_example.yaml scripts/scorecard/scorecard_config.yaml
+vim scripts/scorecard/scorecard_config.yaml
+
+# Run the scorecard script
 python scripts/scorecard/generate_scorecard.py
 ```
 
@@ -36,7 +41,7 @@ Coordinates:
   * step           (step) timedelta64[ns] 1kB 00:15:00 ... 1 days 12:00:00
   * quantile       (quantile) float64 56B 0.02 0.1 0.25 0.5 0.75 0.9 0.98
 Data variables:
-    hindcast       (init_time_utc, location_id, step, quantile) float64 4GB dask.array<chunksi...
+    hindcast       (init_time_utc, location_id, step, quantile) float64 4GB dask.array<chunk...
 ```
 
 NB: This script currently only computes metrics for a "national" (location_id=0) forecast.
@@ -88,7 +93,7 @@ def prep_backtests(backtest_dict: dict[str, str], y_true: xr.Dataset):
     """
     Combines backtests with ground truth and compiles into a single xr.Dataset for processing.
 
-    The backtests are intersected by time, amended with model names, time coordintes, and error 
+    The backtests are intersected by time, amended with model names, time coordinates, and error 
     calculations.
 
     Args:
@@ -99,7 +104,7 @@ def prep_backtests(backtest_dict: dict[str, str], y_true: xr.Dataset):
 
     def prep_ds(ds, y_true):
         """
-        Amend backtest dataset with time coordinates, ground thruths, and errors.
+        Amend backtest dataset with time coordinates, ground truths, and errors.
         
         Args:
             ds: backtest xr.Dataset
@@ -202,7 +207,7 @@ def get_nmae_crosscomparison(df_nmae: pd.Series) -> str:
         columns=labels,
         index=labels)
     
-    # Print the resutl so it's not lost if the report is not generated
+    # Print the result so it's not lost if the report is not generated
     print("\nNMAE cross-comparison")
     print(nmae_crosscomparison_html)
 
