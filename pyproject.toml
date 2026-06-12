@@ -31,6 +31,8 @@ dependencies = [
     "rich",
     "einops",
     "safetensors",
+    "jinja2",
+    "weasyprint",
 ]
 
 [dependency-groups]

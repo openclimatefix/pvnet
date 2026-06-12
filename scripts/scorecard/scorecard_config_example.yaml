@@ -1,0 +1,16 @@
+# Please make a copy of this file called "scorecard_config.yaml" before changing it
+
+input data:
+  backtest_dict:
+    # The dictionary has the structure of "model_name": "backtest_filepath"
+    # The script doesn't have a limitation on the number of backtests you can compare simultaneously
+    # but the more data there is, the longer it will take
+    nl_regional_48h_pv_ecmwf: "/mnt/storage_u2_30tb_a/scratch/nl_backtests/nl_val_backtests/nl_regional_48h_pv_ecmwf_20240101T0000_20241230T1145.zarr"
+    nl_regional_pv_ecmwf_sat: "/mnt/storage_u2_30tb_a/scratch/nl_backtests/nl_val_backtests/nl_regional_pv_ecmwf_sat_20240101T0115_20241230T1145.zarr"
+  y_true_path: "/mnt/storage_u2_30tb_a/ml_training_zarrs/pv/nl_generation/NL_regional.zarr"
+
+output_dir: "backtest_report_demo_val_nl_sat_ablation"
+
+time_window:
+  start: "2024-01-01T00:00"
+  end: null

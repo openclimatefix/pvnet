@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { color: #000000; border-bottom: 2px solid #34495e; }
+        .plot-container { text-align: center; margin: 20px 0; }
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            table-layout: auto;
+            border-collapse: collapse;
+            font-size: 10pt;
+            word-break: break-all;
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+            word-wrap: break-all;
+            overflow-wrap: break-all;}
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>Backtest Scorecard</h1>
+    <p>This report contains summary statistics and basic metric plots.</p>
+    <p>Models being compared: {{ model_names }}</p>
+    <p>Common time period is from {{ time_period_min }} to {{ time_period_max }}</p>
+
+    <h3>T0 Availability</h3>
+    <div class="plot-container">
+        <img src="data:image/png;base64,{{ plot_t0_availability }}" width="60%">
+    </div>
+
+
+    <h3>NMAE comparison</h3>
+    <div class="plot-container">
+        <img src="data:image/png;base64,{{ plot_nmae }}" width="60%">
+    </div>
+        <div class="plot-container">
+        <img src="data:image/png;base64,{{ plot_nmae_month }}" width="60%">
+    </div>
+
+    {{ nmae_by_month_html }}
+
+    <h3>NMAE leaderboard and cross-comparison</h3>
+
+    <h4>NMAE leaderboard</h4>
+    <p>NMAE is calculated across all horizons and the mean value is reported.</p>
+    {{ nmae_leaderboard_html }}
+
+    <h4>NMAE cross-comparison</h4>
+    <p>Cross-comparison of models by NMAE is calculated as follows: </p>
+    <p>
+        <code>value = 100 * (column_model_nmae - row_model_nmae) / column_model_nmae</code>
+    </p>
+    <p>Which is the percentage improvement (or deterioration if negative) of performance
+        of row model compared to the column model. I.e. each row can be read as 
+        "[row model] is better than [column model] by [value]%".</p>
+    {{ nmae_crosscomparison_html }}
+
+    <h3>Quantile calibration</h3>
+    <div class="plot-container">
+        <img src="data:image/png;base64,{{ plot_quantile_calibration }}" width="60%">
+    </div>
+    <p>Fractions below quantile for all models are in the following table:</p>
+    {{ quantile_calibration_html }}
+
+    <h3>Appendix A: backtest source paths</h3>
+    <p>The following data was used for this analysis:</p>
+    <p> Backtest paths: </p>
+    <ul>
+    {% for label, value in model_paths.items() %}
+        <li><strong>{{ label }}:</strong> <code>{{ value }}</code> </li>
+    {% endfor %}
+    </ul>
+    <p> Generation data (ground truth): <code>{{ y_true_path }}</code></p>
+
+</body>
+</html>

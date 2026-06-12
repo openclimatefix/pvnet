@@ -9,7 +9,16 @@ csv/
 notebooks/
 *.html
 *.csv
+*.png
+*.pdf
 latest_logged_train_batch.png
+
+# Do not ignore scorecard .html template
+!scripts/scorecard/scorecard_template.html
+
+# Ignore any new scorecard configs except for the example config 
+scripts/scorecard/*.yaml
+!scripts/scorecard/scorecard_config_example.yaml
 
 # Ignore all model cards...
 pvnet/model_cards/*
@@ -150,3 +159,6 @@ dmypy.json
 
 # vim
 *swp
+
+# uv
+uv.lock
