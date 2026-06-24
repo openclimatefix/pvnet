@@ -23,21 +23,64 @@ def test_validate_batch_against_config_raises_error(late_fusion_model):
 @pytest.mark.parametrize(
     "trainer",
     [
-        {"devices": 1},
-        {"devices": [0]},
+        {"devices": "auto"},
+        {"devices": 2},
+        {"devices": [0, 1]},
+    ],
+    ids=["devices=auto", "devices=2", "devices=[0,1]"],
+)
+
+def test_validate_gpu_config_rejects_multi_gpu_configs_when_multiple_gpus_available(
+    trainer_cfg,
+    trainer,
+    monkeypatch,
+):
+    """Reject configs that may use multiple GPUs when multiple GPUs are available."""
+    monkeypatch.setattr("pvnet.utils.torch.cuda.device_count", lambda: 2)
+
+    with pytest.raises(ValueError, match="does not support multi-GPU training"):
+        validate_gpu_config(trainer_cfg(trainer))
+
+@pytest.mark.parametrize(
+    "trainer",
+    [
+        {"devices": "auto"},
+        {"devices": 2},
+        {"devices": [0, 1]},
         {"accelerator": "cpu"},
     ],
-    ids=["devices=1", "devices=[0]", "accelerator=cpu"],
+    ids=["devices=auto", "devices=2", "devices=[0,1]", "accelerator=cpu"],
 )
-def test_validate_gpu_config_single_device(trainer_cfg, trainer):
-    """Accept single GPU or explicit CPU configurations."""
+
+def test_validate_gpu_config_allows_configs_when_only_one_gpu_available(
+    trainer_cfg,
+    trainer,
+    monkeypatch,
+):
+    """Do not raise if multi-GPU training is impossible on the current machine."""
+    monkeypatch.setattr("pvnet.utils.torch.cuda.device_count", lambda: 1)
+
     validate_gpu_config(trainer_cfg(trainer))
 
+@pytest.mark.parametrize(
+    "trainer",
+    [
+        {"devices": 1},
+        {"devices": [0]},
+        {"accelerator": "cpu", "devices": "auto"},
+    ],
+    ids=["devices=1", "devices=[0]", "cpu-auto"],
+)
 
-def test_validate_gpu_config_multiple_devices(trainer_cfg):
-    """Reject accidental multi-GPU setups."""
-    with pytest.raises(ValueError, match="Parallel training not supported"):
-        validate_gpu_config(trainer_cfg({"devices": 2}))
+def test_validate_gpu_config_allows_single_device_configs(
+    trainer_cfg,
+    trainer,
+    monkeypatch,
+):
+    """Allow configs that cannot use multiple CUDA GPUs."""
+    monkeypatch.setattr("pvnet.utils.torch.cuda.device_count", lambda: 2)
+
+    validate_gpu_config(trainer_cfg(trainer))
 
 
 def test_validate_batch_longer_sequence(batch, late_fusion_model):
