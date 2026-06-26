@@ -168,8 +168,7 @@ def validate_batch_against_config(
 
 
 def validate_gpu_config(config: DictConfig) -> None:
-    """
-    Abort if the config may use multiple GPUs.
+    """Abort if the config may use multiple GPUs.
 
     PVNet does not currently support parallel training. This validation only
     raises when multiple CUDA GPUs are actually available and the trainer config
@@ -193,11 +192,7 @@ def validate_gpu_config(config: DictConfig) -> None:
             "PVNet does not support multi-GPU training. "
             "Use a single explicit device, for example `devices: [0]`."
         )
-    elif (
-        isinstance(devices, int)
-        and not isinstance(devices, bool)
-        and devices > 1
-    ):
+    elif isinstance(devices, int) and devices > 1:
         msg = (
             f"Detected `devices: {devices}` with {num_available_gpus} GPUs available. "
             "This requests multiple GPUs. PVNet does not support multi-GPU training. "

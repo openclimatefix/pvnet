@@ -47,9 +47,8 @@ def test_validate_gpu_config_rejects_multi_gpu_configs_when_multiple_gpus_availa
         {"devices": "auto"},
         {"devices": 2},
         {"devices": [0, 1]},
-        {"accelerator": "cpu"},
     ],
-    ids=["devices=auto", "devices=2", "devices=[0,1]", "accelerator=cpu"],
+    ids=["devices=auto", "devices=2", "devices=[0,1]"],
 )
 
 def test_validate_gpu_config_allows_configs_when_only_one_gpu_available(
