@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 
 import rich.syntax
 import rich.tree
+import torch
 from lightning.pytorch.utilities import rank_zero_only
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, ListConfig, OmegaConf
 
 if TYPE_CHECKING:
     from pvnet.models.base_model import BaseModel
@@ -167,13 +168,43 @@ def validate_batch_against_config(
 
 
 def validate_gpu_config(config: DictConfig) -> None:
-    """Abort if multiple GPUs requested by mistake i.e. `devices: 2` instead of `[2]`."""
-    tr = config.get("trainer", {})
-    dev = tr.get("devices")
+    """Abort if the config may use multiple GPUs.
 
-    if isinstance(dev, int) and dev > 1:
-        raise ValueError(
-            f"Detected `devices: {dev}` — this requests {dev} GPUs. "
-            "If you meant a specific GPU (e.g. GPU 2), use `devices: [2]`. "
-            "Parallel training not supported."
+    PVNet does not currently support parallel training. This validation only
+    raises when multiple CUDA GPUs are actually available and the trainer config
+    could select more than one of them.
+    """
+    trainer_config = config.get("trainer", {})
+    devices = trainer_config.get("devices")
+    accelerator = str(trainer_config.get("accelerator", "auto")).lower()
+
+    num_available_gpus = torch.cuda.device_count()
+
+    if num_available_gpus <= 1:
+        return
+
+    if accelerator in {"cpu", "mps", "tpu"}:
+        return
+
+    if devices == "auto":
+        msg = (
+            f"`devices: 'auto'` may use all {num_available_gpus} available GPUs. "
+            "PVNet does not support multi-GPU training. "
+            "Use a single explicit device, for example `devices: [0]`."
         )
+    elif isinstance(devices, int) and devices > 1:
+        msg = (
+            f"Detected `devices: {devices}` with {num_available_gpus} GPUs available. "
+            "This requests multiple GPUs. PVNet does not support multi-GPU training. "
+            "If you meant to select a specific GPU, for example GPU 2, use `devices: [2]`."
+        )
+    elif isinstance(devices, (list, tuple, ListConfig)) and len(devices) > 1:
+        msg = (
+            f"Detected `devices: {list(devices)}` with {num_available_gpus} GPUs available. "
+            "This requests multiple GPUs. PVNet does not support multi-GPU training. "
+            "Use a single explicit device, for example `devices: [0]`."
+        )
+    else:
+        return
+
+    raise ValueError(msg)
