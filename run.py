@@ -8,6 +8,7 @@ import logging
 import sys
 
 import hydra
+import torch
 from omegaconf import DictConfig
 
 from pvnet.training import train
@@ -15,6 +16,9 @@ from pvnet.utils import print_config, run_config_utilities, validate_gpu_config
 
 logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 
+# Use TF32 tensor cores for fp32 matmuls / convs
+# Solid speedup with negligible precision loss
+torch.set_float32_matmul_precision("high")
 
 
 @hydra.main(config_path="configs/", config_name="config.yaml", version_base="1.2")

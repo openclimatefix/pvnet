@@ -153,7 +153,9 @@ class PVNetLightningModule(pl.LightningModule):
         """Internally store the validation predictions"""
 
         y = batch["generation"][:, -self.model.forecast_len :].cpu().numpy()
-        y_hat = y_hat.cpu().numpy()
+        # .float() as numpy has no bfloat16 dtype
+        # Fails under precision="bf16-mixed"
+        y_hat = y_hat.float().cpu().numpy()
         ids = batch["location_id"].cpu().numpy()
         init_times_utc = pd.to_datetime(
             batch["time_utc"][:, self.model.history_len + 1].cpu().numpy().astype("datetime64[ns]")
