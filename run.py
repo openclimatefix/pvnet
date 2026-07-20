@@ -16,6 +16,8 @@ from pvnet.utils import print_config, run_config_utilities, validate_gpu_config
 
 logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 
+# Use TF32 tensor cores for fp32 matmuls / convs
+# Solid speedup with negligible precision loss
 torch.set_float32_matmul_precision("high")
 
 
