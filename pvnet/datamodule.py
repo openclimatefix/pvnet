@@ -4,40 +4,39 @@ import os
 
 import numpy as np
 import torch
+import pandas as pd
 
 from lightning.pytorch import LightningDataModule
 from ocf_data_sampler.numpy_sample.collate import stack_np_samples_into_batch
 from ocf_data_sampler.numpy_sample.common_types import NumpySample, TensorBatch
 from ocf_data_sampler.torch_datasets.pvnet_dataset import PVNetDataset
 from ocf_data_sampler.torch_datasets.utils.torch_batch_utils import batch_to_tensor
-from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
-
-
+from torch.utils.data import DataLoader, Subset, Sampler, WeightedRandomSampler
 
 def collate_fn(samples: list[NumpySample]) -> TensorBatch:
     """Convert a list of NumpySample samples to a tensor batch"""
     return batch_to_tensor(stack_np_samples_into_batch(samples))
 
-def get_country(loc_id):
+def get_country(loc_id: pd.Series) -> np.ndarray:
     """Returns np array labelled UK or NL for this specific dataset"""
     return np.where(loc_id < 352, "UK", "NL")
 
 def get_sampler(pvnet_dataset: PVNetDataset, 
-                weight_NL: float):
+                weight_NL: float) -> Sampler:
     """
     Args:
     * pvnet_dataset: ocf_data_sampler.torch_datasets.pvnet_dataset.PVNetDataset
     * weight_NL: Float ratio of sampling NL
     Returns:
-    Sampler"""
+    * Sampler"""
     # Currently only works for pvnet_dataset.complete_generation = False
     # Could replace this later e.g., user provides country in zarr file
     country = get_country(pvnet_dataset.valid_t0_and_location_ids["location_id"])
-    n_UK = sum(country=="UK")
+    n_UK = sum(country == "UK")
     n_NL = sum(country == "NL")
     n_total = len(country)
     weight_UK = 1.0 - weight_NL
-    print(f"Will sample UK with frequency {weight_UK}, and NL with frequency {weight_NL}")
+    print(f"Sample UK with frequency {weight_UK}, and NL with frequency {weight_NL}")
     # weight_NL and weight_UK are class weights - we need weight per sample, considering different number of samples
     weight_per_sample_UK = weight_UK / n_UK
     weight_per_sample_NL = weight_NL / n_NL
@@ -77,6 +76,8 @@ class PVNetDataModule(LightningDataModule):
         pin_memory: bool = False,
         seed: int | None = None,
         dataset_pickle_dir: str | None = None,
+        use_sampler: bool = False,
+        weight_NL: float | None = None,
     ):
         """Base Datamodule for streaming samples.
 
@@ -105,6 +106,9 @@ class PVNetDataModule(LightningDataModule):
         self.val_periods = val_periods
         self.seed = seed
         self.dataset_pickle_dir = dataset_pickle_dir
+        self.use_sampler = use_sampler
+        if self.use_sampler:
+            self.weight_NL = weight_NL
 
         self._common_dataloader_kwargs = dict(
             batch_size=batch_size,
@@ -129,9 +133,10 @@ class PVNetDataModule(LightningDataModule):
             self.train_dataset = self._get_dataset(self.train_periods)
 
             # Prepare the sampler
-            self.sampler = get_sampler(self.train_dataset, 
-                                       weight_NL=0.9   # Needs to be moved into config file somewhere?
-                                       )
+            if self.use_sampler:
+                self.sampler = get_sampler(self.train_dataset, 
+                                        weight_NL=self.weight_NL
+                                        )
 
             # Prepare and pre-shuffle the val dataset and set seed for reproducibility
             val_dataset = self._get_dataset(self.val_periods)
@@ -173,8 +178,8 @@ class PVNetDataModule(LightningDataModule):
         """Construct train dataloader"""
         return DataLoader(
             self.train_dataset,
-            shuffle=False,
-            sampler = self.sampler,
+            shuffle=False if self.use_sampler else True,
+            sampler=self.sampler if self.use_sampler else None,
             drop_last=True,
             **self._common_dataloader_kwargs
         )
