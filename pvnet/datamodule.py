@@ -3,15 +3,15 @@
 import os
 
 import numpy as np
-import torch
 import pandas as pd
-
+import torch
 from lightning.pytorch import LightningDataModule
 from ocf_data_sampler.numpy_sample.collate import stack_np_samples_into_batch
 from ocf_data_sampler.numpy_sample.common_types import NumpySample, TensorBatch
 from ocf_data_sampler.torch_datasets.pvnet_dataset import PVNetDataset
 from ocf_data_sampler.torch_datasets.utils.torch_batch_utils import batch_to_tensor
-from torch.utils.data import DataLoader, Subset, Sampler, WeightedRandomSampler
+from torch.utils.data import DataLoader, Sampler, Subset, WeightedRandomSampler
+
 
 def collate_fn(samples: list[NumpySample]) -> TensorBatch:
     """Convert a list of NumpySample samples to a tensor batch"""
@@ -23,34 +23,43 @@ def get_country(loc_id: pd.Series) -> np.ndarray:
 
 def get_sampler(pvnet_dataset: PVNetDataset, 
                 weight_NL: float) -> Sampler:
-    """
+    """Get Torch Sampler for DataLoader
+
     Args:
-    * pvnet_dataset: ocf_data_sampler.torch_datasets.pvnet_dataset.PVNetDataset
-    * weight_NL: Float ratio of sampling NL
+        pvnet_dataset: ocf_data_sampler.torch_datasets.pvnet_dataset.PVNetDataset
+        weight_NL: Float ratio of sampling NL
     Returns:
-    * Sampler"""
+        Sampler
+    """
     # Currently only works for pvnet_dataset.complete_generation = False
     # Could replace this later e.g., user provides country in zarr file
     country = get_country(pvnet_dataset.valid_t0_and_location_ids["location_id"])
     n_UK = sum(country == "UK")
     n_NL = sum(country == "NL")
-    n_total = len(country)
     weight_UK = 1.0 - weight_NL
     print(f"Sample UK with frequency {weight_UK}, and NL with frequency {weight_NL}")
-    # weight_NL and weight_UK are class weights - we need weight per sample, considering different number of samples
+    # weight_NL and weight_UK are class weights. We need to account for different number of 
+    # UK and NL samples and calculate weight per sample
+    # different number of samples
     weight_per_sample_UK = weight_UK / n_UK
     weight_per_sample_NL = weight_NL / n_NL
-    print(f"For UK, the weight per sample is {weight_per_sample_UK}, and for NL weight per sample is {weight_per_sample_NL}")
+    print(f"For UK, the weight per sample is {weight_per_sample_UK}, and for NL weight \
+        per sample is {weight_per_sample_NL}")
     weights_all = np.where(country == "UK", weight_per_sample_UK, weight_per_sample_NL)
     print(weights_all)
     weighted_sampler = CustomWeightedRandomSampler(weights_all, len(weights_all))
     return weighted_sampler
 
 class CustomWeightedRandomSampler(WeightedRandomSampler):
-    """WeightedRandomSampler except allows for more than 2^24 samples to be sampled
-    https://github.com/pytorch/pytorch/issues/2576#issuecomment-831780307 
     """
+    WeightedRandomSampler except allows for more than 2^24 samples to be sampled 
+
+    https://github.com/pytorch/pytorch/issues/2576#issuecomment-831780307
+    """
+
     def __init__(self, *args, **kwargs):
+        """WeightedRandomSampler except allows for more than 2^24 samples to be sampled
+        """
         super().__init__(*args, **kwargs)
 
     def __iter__(self):
@@ -98,6 +107,8 @@ class PVNetDataModule(LightningDataModule):
             seed: Random seed used in shuffling datasets.
             dataset_pickle_dir: Directory in which the val and train set will be presaved as
                 pickle objects. Setting this speeds up instantiation of multiple workers a lot.
+            use_sampler: If True, will use weighted sampler when sampling a batch in DataLoader.
+            weight_NL: Frequency to sample NL data assuming UK-NL dataset provided
         """
         super().__init__()
 
