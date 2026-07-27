@@ -139,7 +139,9 @@ def test_checkpoint_load(
     ckpt_cfg,
 ):
     """Test saving and loading from checkpoint from previous test"""
-    # Check that last.pt exists
+    # Check that last.pt exists 
+    # TODO was expecting the checkpoint to be saved in ckpt_cfg["ckpt"]['dirpath'] 
+    # but they are saved in a different file which i have to search for 
     wandb_dir = Path(logger_cfg['wandb']['save_dir'])
     assert wandb_dir.is_dir()
     # Get run-id from file matching 'run-*.wandb' inside latest-run
@@ -172,5 +174,4 @@ def test_checkpoint_load(
     })
 
     pvnet_train(cfg)
-    # This currently fails as no files are saved in ckpt_cfg["ckpt"]['dirpath']
 
