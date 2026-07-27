@@ -25,5 +25,5 @@ renewable: "pv_uk"
 work_dir: ${hydra:runtime.cwd}
 
 model_name: "default"
-
+ckpt_path: null
 seed: 2727831
