@@ -119,4 +119,4 @@ def train(config: DictConfig) -> None:
     )
 
     # Train the model completely
-    trainer.fit(model=model, datamodule=datamodule)
+    trainer.fit(model=model, datamodule=datamodule, ckpt_path=config.ckpt_path)
