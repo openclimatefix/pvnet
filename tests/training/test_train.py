@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import os
 import pytest
 from omegaconf import DictConfig
 
@@ -125,6 +126,51 @@ def test_train_pvnet(
         "callbacks": ckpt_cfg,
         "trainer": trainer_cfg_cpu,
         "model_name": "test_model",
+        "ckpt_path": None,
     })
 
     pvnet_train(cfg)
+
+    
+def test_checkpoint_load(
+    data_config_path,
+    trainer_cfg_cpu,
+    logger_cfg,
+    ckpt_cfg,
+):
+    """Test saving and loading from checkpoint from previous test"""
+    # Check that last.pt exists
+    wandb_dir = Path(logger_cfg['wandb']['save_dir'])
+    assert wandb_dir.is_dir()
+    # Get run-id from file matching 'run-*.wandb' inside latest-run
+    wandb_files = list(Path(wandb_dir, "wandb", "latest-run").glob("run-*.wandb"))
+    assert len(wandb_files) > 0, f"No run file found in {wandb_dir}"
+    run_id = wandb_files[0].stem.split("run-")[-1]
+    ckpt_path = Path(wandb_dir.parent, run_id, "last.ckpt")
+    assert ckpt_path.is_file(), f"Checkpoint not found at: {ckpt_path}"
+    
+    cfg = DictConfig({
+        "seed": 42,
+        "datamodule": {
+            "_target_": "pvnet.datamodule.PVNetDataModule",
+            "train_periods": [[None, None]],
+            "val_periods": [[None, None]],
+            "configuration": str(data_config_path),
+            "batch_size": 2,
+            "num_workers": 0,
+            "prefetch_factor": None,
+        },
+        "model": build_lit_late_fusion_cfg(
+            interval_minutes=30,
+            include_time=False,
+        ),
+        "logger": logger_cfg,
+        "callbacks": ckpt_cfg,
+        "trainer": trainer_cfg_cpu,
+        "model_name": "test_model",
+        "ckpt_path": ckpt_path,
+    })
+
+    pvnet_train(cfg)
+    # This currently fails as no files are saved in ckpt_cfg["ckpt"]['dirpath']
+
