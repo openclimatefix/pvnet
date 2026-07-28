@@ -44,20 +44,19 @@ class PVNetLightningModule(pl.LightningModule):
         # This setting is only used when lr is tuned with callback
         self.lr = None
 
-        # Load model weights if they exist
-        print(self.model.checkpoint_path)
-        if self.model.checkpoint_path is not None: 
-            self.load_from_checkpoint()
 
-    def load_from_checkpoint(self):
+    def load_from_checkpoint(self,
+                             ckpt_path: str):
         """
         Load from checkpoint
+
+        Args:
+            ckpt_path: path to checkpoint
         
         """
-        print(f"Loading from checkpoint {self.model.checkpoint_path}")
-        checkpoint_state = torch.load(self.model.checkpoint_path, 
+        print(f"Loading from checkpoint {ckpt_path}")
+        checkpoint_state = torch.load(ckpt_path, 
                                       map_location="cpu", weights_only=False)['state_dict']
-        print(checkpoint_state.keys, self.state_dict().keys())
         self.load_state_dict(state_dict=checkpoint_state)
 
 
