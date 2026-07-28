@@ -61,11 +61,6 @@ def train(config: DictConfig) -> None:
     # Init lightning model
     model: LightningModule = hydra.utils.instantiate(config.model)
 
-    # if config.model contains ckpt_path - load it
-    if "ckpt_path" in config.model:
-        if not config.model.ckpt_path:
-            model.load_from_checkpoint(config.model.ckpt_path)
-
     # Init lightning loggers
     loggers: list[Logger] = []
     if "logger" in config:
