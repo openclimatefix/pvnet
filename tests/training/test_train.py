@@ -104,6 +104,7 @@ def test_train_pvnet(
     trainer_cfg_cpu,
     logger_cfg,
     ckpt_cfg,
+    wandb_save_dir,
 ):
     """Train pvnet model with W&B offline."""
     cfg = DictConfig({
@@ -128,3 +129,7 @@ def test_train_pvnet(
     })
 
     pvnet_train(cfg)
+
+    # train() overrides ModelCheckpoint.dirpath to <parent>/<wandb_id>
+    ckpts = list(Path(wandb_save_dir).parent.glob("*/last.ckpt"))
+    assert len(ckpts) == 1, f"expected one last.ckpt, found {ckpts}"
