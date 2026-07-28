@@ -115,3 +115,6 @@ optimizer:
   patience: 5
   factor: 0.1
   threshold: 0.002
+
+# Path to checkpoint 
+ckpt_path: null
