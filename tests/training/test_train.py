@@ -129,12 +129,14 @@ def test_train_pvnet(
 
     pvnet_train(cfg)
 
-    # Check if checkpoint was found
-    wandb_dir = Path(cfg.logger.wandb.save_dir, "wandb")
-    assert wandb_dir.is_dir(), f"wandb_dir {wandb_dir} does not exist"
-    print(list(wandb_dir.glob("*")))
-    assert (len(list(wandb_dir.glob("*")))) > 0, f"wandb_dir {wandb_dir} is empty"
-    latest_dir = Path(wandb_dir, "lastest-run")
-    run_files = list(Path(wandb_dir, "latest-run").glob("run-*.wandb"))
-    assert len(run_files) > 0, f"No run file found in {wandb_dir}/latest-run"
+    # Test if checkpoint exists
+    save_dir = Path(cfg.logger.wandb.save_dir)
+    assert save_dir.is_dir(), f"save_dir {save_dir} does not exist"
+    latest_run = Path(save_dir, "wandb", "latest-run")
+    assert latest_run.is_dir(), f"latest_run directory {latest_run} does not exist"
+    run_files = list(latest_run.glob("run-*.wandb"))
+    assert len(run_files) > 0, f"No run file found in {latest_run}"
+    wandb_id = run_files[0].stem.split("run-")[-1]
+    ckpt_path = Path(save_dir.parent, wandb_id, "last.ckpt")
+    assert ckpt_path.is_file(), f"Checkpoint not found at: {ckpt_path}"
 

@@ -24,7 +24,7 @@ model_checkpoint:
   every_n_epochs: 1
   verbose: False
   filename: "epoch={epoch}-step={step}"
-  # The path to where the model checkpoints will be stored
+  # The path to where the model checkpoints will be stored - not used if using wandb logger
   dirpath: "PLACEHOLDER/${model_name}" #${..model_name}
   auto_insert_metric_name: False
   save_on_train_epoch_end: False
