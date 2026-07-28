@@ -9,7 +9,6 @@ jobs:
 
   pull-ci:
     uses: openclimatefix/.github/.github/workflows/branch_ci.yml@main
-    if: ${{ github.event.pull_request.head.repo.fork }}
     with:
       enable_linting: true
       enable_typechecking: false
