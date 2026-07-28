@@ -26,6 +26,7 @@ class PVNetLightningModule(pl.LightningModule):
         model: BaseModel,
         optimizer: AbstractOptimizer,
         save_all_validation_results: bool = False,
+        ckpt_path: str | None = None,
     ):
         """Lightning module for training PVNet models
 
@@ -43,6 +44,10 @@ class PVNetLightningModule(pl.LightningModule):
         # Model must have lr to allow tuning
         # This setting is only used when lr is tuned with callback
         self.lr = None
+
+        # Load checkpoint if it exists
+        if ckpt_path is not None:
+            self.load_from_checkpoint(ckpt_path)
 
 
     def load_from_checkpoint(self,
