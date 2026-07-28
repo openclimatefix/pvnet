@@ -137,19 +137,13 @@ def test_checkpoint_load(
     trainer_cfg_cpu,
     logger_cfg,
     ckpt_cfg,
+    wandb_save_dir
 ):
     """Test saving and loading from checkpoint from previous test"""
-    # Check that last.pt exists 
-    # TODO was expecting the checkpoint to be saved in ckpt_cfg["ckpt"]['dirpath'] 
-    # but they are saved in a different file which i have to search for 
-    wandb_dir = Path(logger_cfg['wandb']['save_dir'])
-    assert wandb_dir.is_dir()
-    # Get run-id from file matching 'run-*.wandb' inside latest-run
-    wandb_files = list(Path(wandb_dir, "wandb", "latest-run").glob("run-*.wandb"))
-    assert len(wandb_files) > 0, f"No run file found in {wandb_dir}"
-    run_id = wandb_files[0].stem.split("run-")[-1]
-    ckpt_path = Path(wandb_dir.parent, run_id, "last.ckpt")
-    assert ckpt_path.is_file(), f"Checkpoint not found at: {ckpt_path}"
+    # train() overrides ModelCheckpoint.dirpath to <parent>/<wandb_id>
+    ckpts = list(Path(wandb_save_dir).parent.glob("*/last.ckpt"))
+    assert len(ckpts) == 1, f"expected one last.ckpt, found {ckpts}"
+    ckpt_path = ckpts[0]
     
     cfg = DictConfig({
         "seed": 42,
