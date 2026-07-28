@@ -4,6 +4,9 @@ run-name: 'Test PR edit #${{ github.event.number }} "${{ github.event.pull_reque
 on:
   pull_request:
     paths-ignore: ['README.md']
+  push:
+    branches-ignore: []
+    paths-ignore: ['README.md']
 
 jobs:
 
