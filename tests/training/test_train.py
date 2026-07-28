@@ -128,3 +128,13 @@ def test_train_pvnet(
     })
 
     pvnet_train(cfg)
+
+    # Check if checkpoint was found
+    wandb_dir = Path(cfg.logger.wandb.save_dir, "wandb")
+    assert wandb_dir.is_dir(), f"wandb_dir {wandb_dir} does not exist"
+    print(list(wandb_dir.glob("*")))
+    assert (len(list(wandb_dir.glob("*")))) > 0, f"wandb_dir {wandb_dir} is empty"
+    latest_dir = Path(wandb_dir, "lastest-run")
+    run_files = list(Path(wandb_dir, "latest-run").glob("run-*.wandb"))
+    assert len(run_files) > 0, f"No run file found in {wandb_dir}/latest-run"
+
