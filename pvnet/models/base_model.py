@@ -399,7 +399,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         forecast_minutes: int,
         output_quantiles: list[float] | None = None,
         interval_minutes: int = 30,
-        checkpoint_path: str | None = None,
     ):
         """Abtstract base class for PVNet submodels.
 
@@ -409,7 +408,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
             output_quantiles: A list of float (0.0, 1.0) quantiles to predict values for. If set to
                 None the output is a single value.
             interval_minutes: The interval in minutes between each timestep in the data
-            checkpoint_path: Path to where checkpoint is saved
         """
         super().__init__()
 
@@ -431,8 +429,6 @@ class BaseModel(torch.nn.Module, HuggingfaceMixin):
         else:
             self.num_output_features = self.forecast_len
 
-        # Checkpoint
-        self.checkpoint_path = checkpoint_path
 
     def _quantiles_to_prediction(self, y_quantiles: torch.Tensor) -> torch.Tensor:
         """

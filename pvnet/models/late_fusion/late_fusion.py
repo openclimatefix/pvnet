@@ -60,8 +60,6 @@ class LateFusionModel(BaseModel):
         nwp_interval_minutes: DictConfig | None = None,
         pv_interval_minutes: int = 5,
         sat_interval_minutes: int = 5,
-        checkpoint_path: str | None = None,
-
     ):
         """Neural network which combines information from different sources.
 
@@ -110,14 +108,12 @@ class LateFusionModel(BaseModel):
                 data for each source
             pv_interval_minutes: The interval between each sample of the PV data
             sat_interval_minutes: The interval between each sample of the satellite data
-            checkpoint_path: Path to where checkpoint is saved
         """
         super().__init__(
             history_minutes=history_minutes,
             forecast_minutes=forecast_minutes,
             output_quantiles=output_quantiles,
             interval_minutes=interval_minutes,
-            checkpoint_path=checkpoint_path
         )
 
         self.include_generation_history = include_generation_history
