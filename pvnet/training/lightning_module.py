@@ -34,6 +34,7 @@ class PVNetLightningModule(pl.LightningModule):
             model: The PVNet model
             optimizer: Optimizer
             save_all_validation_results: Whether to save all the validation predictions to wandb
+            ckpt_path: checkpoint path if loading from past model checkpoint
         """
         super().__init__()
 
