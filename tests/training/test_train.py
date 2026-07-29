@@ -20,7 +20,7 @@ def trainer_cfg_cpu() -> dict:
     """Tiny CPU-only Trainer config."""
     return {
         "_target_": "lightning.pytorch.Trainer",
-        "max_epochs": 1,
+        "max_epochs": 2,
         "limit_train_batches": 1,
         "limit_val_batches": 1,
         "accelerator": "cpu",
@@ -71,6 +71,7 @@ def build_lit_late_fusion_cfg(
         "_target_": "pvnet.training.lightning_module.PVNetLightningModule",
         "model": {
             "_target_": "pvnet.models.LateFusionModel",
+            "output_quantiles": [0.1, 0.5, 0.9],
             "sat_encoder": None,
             "nwp_encoders_dict": None,
             "add_image_embedding_channel": False,
