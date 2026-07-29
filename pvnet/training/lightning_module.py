@@ -129,11 +129,15 @@ class PVNetLightningModule(pl.LightningModule):
         if self.model.use_quantile_regression:
             metric_name = "val_fraction_below/fraction_below_{:.2f}_quantile"
             # Add fraction below each quantile for calibration
+            val_quantiles = np.zeros(len(self.model.output_quantiles))
             for i, quantile in enumerate(self.model.output_quantiles):
                 below_quant = y <= y_hat[..., i]
                 # Mask values small values, which are dominated by night
                 mask = y >= 0.01
-                losses[metric_name.format(quantile)] = below_quant[mask].float().mean()
+                below_quant_masked_mean = below_quant[mask].float().mean()
+                losses[metric_name.format(quantile)] = below_quant_masked_mean
+                val_quantiles[i] = below_quant_masked_mean
+            self._val_quantiles.append(val_quantiles)
 
         return losses
 
@@ -185,6 +189,8 @@ class PVNetLightningModule(pl.LightningModule):
         # Set up stores which we will fill during validation
         self.all_val_results: list[xr.Dataset] = []
         self._val_horizon_maes: list[np.array] = []
+        if self.model.use_quantile_regression:
+            self._val_quantiles: list[np.array] = []
         if self.current_epoch == 0:
             self._val_persistence_horizon_maes: list[np.array] = []
 
@@ -354,6 +360,24 @@ class PVNetLightningModule(pl.LightningModule):
                 {"val_horizon_mae_plot": horizon_mae_plot},
                 step=self.trainer.global_step,                
             )
+
+            # Create a quantile-quantile plot
+            if self.model.use_quantile_regression:
+                val_quantiles = np.mean(self._val_quantiles, axis=0)
+                self._val_quantiles = []
+                    
+                qq_plot = wandb_line_plot(
+                    x=self.model.output_quantiles,
+                    y=val_quantiles,
+                    xlabel="True quantiles",
+                    ylabel="Predicted quantiles",
+                    title="Quantile-quantile plot",
+                )
+
+                wandb.log(
+                    {"quantile_quantile": qq_plot},
+                    step=self.trainer.global_step,                
+                )
 
             # Create persistence horizon accuracy curve but only on first epoch
             if self.current_epoch == 0:
