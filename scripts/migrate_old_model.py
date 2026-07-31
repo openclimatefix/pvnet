@@ -157,7 +157,7 @@ else:
 
 # Add a note to the model card to say the model has been migrated
 with open(f"{save_dir}/{MODEL_CARD_NAME}", "a") as f:
-    current_date = datetime.date.today().strftime("%Y-%m-%d")
+    current_date = datetime.datetime.now(datetime.timezone.utc).date().strftime("%Y-%m-%d")
     pvnet_version = version("pvnet")
     f.write(
         f"\n\n---\n**Migration Note**: This model was migrated on {current_date} "
