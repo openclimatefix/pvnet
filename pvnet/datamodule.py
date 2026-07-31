@@ -60,18 +60,18 @@ class PVNetDataModule(LightningDataModule):
         self.seed = seed
         self.dataset_pickle_dir = dataset_pickle_dir
 
-        self._common_dataloader_kwargs = dict(
-            batch_size=batch_size,
-            batch_sampler=None,
-            num_workers=num_workers,
-            collate_fn=collate_fn,
-            pin_memory=pin_memory,
-            timeout=0,
-            worker_init_fn=None,
-            prefetch_factor=prefetch_factor,
-            persistent_workers=persistent_workers,
-            multiprocessing_context="spawn" if num_workers > 0 else None,
-        )
+        self._common_dataloader_kwargs = {
+            "batch_size": batch_size,
+            "batch_sampler": None,
+            "num_workers": num_workers,
+            "collate_fn": collate_fn,
+            "pin_memory": pin_memory,
+            "timeout": 0,
+            "worker_init_fn": None,
+            "prefetch_factor": prefetch_factor,
+            "persistent_workers": persistent_workers,
+            "multiprocessing_context": "spawn" if num_workers > 0 else None,
+        }
 
     def setup(self, stage: str | None = None):
         """Called once to prepare the datasets."""

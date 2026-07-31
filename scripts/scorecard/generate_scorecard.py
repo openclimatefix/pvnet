@@ -143,7 +143,7 @@ def prep_backtests(backtest_dict: dict[str, str], y_true: xr.Dataset):
         else:
             ds = xr.open_zarr(backtest_filepath)
             
-        ds = ds.expand_dims(dict(model=[model]))
+        ds = ds.expand_dims({"model": [model]})
         backtest_ds_list.append(ds)
 
     # Intersect backtests by all dimensions except model name

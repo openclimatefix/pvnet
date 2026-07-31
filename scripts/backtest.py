@@ -325,11 +325,11 @@ class Forecaster:
         """Put numpy array of predictions into a dataarray"""
 
         dims = ["init_time_utc", "location_id", "step"]
-        coords = dict(
-            init_time_utc=[t0],
-            location_id=location_ids,
-            step=self.steps,
-        )
+        coords = {
+            "init_time_utc": [t0],
+            "location_id": location_ids,
+            "step": self.steps,
+        }
 
         if output_quantiles is not None:
             dims.append("quantile")
