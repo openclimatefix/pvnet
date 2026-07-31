@@ -80,7 +80,10 @@ target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = ["E", "D", "I"]
-ignore = ["D200","D202","D210","D212","D415","D105"]
+ignore = ["D200","D202","D210","D212","D415","D105",
+    "TRY002", # Create your own exception
+    "B008", # Do not perform function call typer.Argument
+    ]
 
 [tool.ruff.lint.mccabe]
 # Unlike Flake8, default to a complexity level of 10.

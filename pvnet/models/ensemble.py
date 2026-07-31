@@ -42,7 +42,7 @@ class Ensemble(BaseModel):
             forecast_minutes,
             interval_minutes,
         ]:
-            assert all([p == param_list[0] for p in param_list]), param_list
+            assert all(p == param_list[0] for p in param_list), param_list
 
         super().__init__(
             history_minutes=history_minutes[0],

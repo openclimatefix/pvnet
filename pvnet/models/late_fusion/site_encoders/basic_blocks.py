@@ -33,4 +33,3 @@ class AbstractSitesEncoder(nn.Module, metaclass=ABCMeta):
     @abstractmethod
     def forward(self) -> torch.Tensor:
         """Run model forward"""
-        pass

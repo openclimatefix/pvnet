@@ -73,14 +73,17 @@ if "adapt_batches" in model_config:
 
 # This parameter has been removed
 if "target_key" in model_config:
-    if model_config["target_key"] == "site":
-        if "include_site_yield_history" in model_config:
+    if (
+        (model_config["target_key"] == "site") 
+        and ("include_site_yield_history" in model_config)
+        ):
             model_config["include_generation_history"] = model_config.pop(
                 "include_site_yield_history"
             )
 
-    if model_config["target_key"] == "gsp" or not model_config["target_key"]:
-        if "include_site_yield_history" in model_config:
+    if (
+        (model_config["target_key"] == "gsp" or not model_config["target_key"]) 
+        and ("include_site_yield_history" in model_config)):
             del model_config["include_site_yield_history"]
 
     del model_config["target_key"]
@@ -100,7 +103,7 @@ else:
 
 # Re-find the model components in the new package structure
 if model_config.get("nwp_encoders_dict", None) is not None:
-    for k, v in model_config["nwp_encoders_dict"].items():
+    for v in model_config["nwp_encoders_dict"].values():
         v["_target_"] = (
             v["_target_"]
             .replace("multimodal", "late_fusion")
@@ -154,7 +157,7 @@ else:
 
 # Add a note to the model card to say the model has been migrated
 with open(f"{save_dir}/{MODEL_CARD_NAME}", "a") as f:
-    current_date = datetime.date.today().strftime("%Y-%m-%d")
+    current_date = datetime.datetime.now(datetime.timezone.utc).date().strftime("%Y-%m-%d")
     pvnet_version = version("pvnet")
     f.write(
         f"\n\n---\n**Migration Note**: This model was migrated on {current_date} "

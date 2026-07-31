@@ -90,7 +90,7 @@ def populate_config_with_data_filepaths(config: dict, data_paths: dict) -> dict:
     # NWP is nested so must be treated separately
     if "nwp" in config["input_data"]:
         nwp_config = config["input_data"]["nwp"]
-        for nwp_source in nwp_config.keys():
+        for nwp_source in nwp_config:
             provider = nwp_config[nwp_source]["provider"]
             assert provider in data_paths["nwp"], f"Missing NWP path: {provider}"
             nwp_config[nwp_source]["zarr_path"] = data_paths["nwp"][provider]
@@ -325,11 +325,11 @@ class Forecaster:
         """Put numpy array of predictions into a dataarray"""
 
         dims = ["init_time_utc", "location_id", "step"]
-        coords = dict(
-            init_time_utc=[t0],
-            location_id=location_ids,
-            step=self.steps,
-        )
+        coords = {
+            "init_time_utc": [t0],
+            "location_id": location_ids,
+            "step": self.steps,
+        }
 
         if output_quantiles is not None:
             dims.append("quantile")
