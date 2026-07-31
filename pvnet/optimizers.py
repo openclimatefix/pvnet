@@ -166,7 +166,7 @@ class AdamWReduceLROnPlateau(AbstractOptimizer):
 
         group_args = []
 
-        for key in self.lr.keys():
+        for key in self.lr:
             if key == "default":
                 continue
 
