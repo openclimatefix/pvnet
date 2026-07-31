@@ -34,7 +34,6 @@ class AbstractLinearNetwork(nn.Module, metaclass=ABCMeta):
     @abstractmethod
     def forward(self, x: OrderedDict[str, torch.Tensor] | torch.Tensor) -> torch.Tensor:
         """Run model forward"""
-        pass
 
 
 class ResidualLinearBlock(nn.Module):
