@@ -23,6 +23,7 @@ from pvnet.utils import (
     PYTORCH_WEIGHTS_NAME,
 )
 
+logger = logging.getLogger(__name__)
 
 def fill_config_paths_with_placeholder(config: dict, placeholder: str = "PLACEHOLDER") -> dict:
     """Modify the config in place to fill data paths with placeholder strings.
@@ -34,10 +35,9 @@ def fill_config_paths_with_placeholder(config: dict, placeholder: str = "PLACEHO
     input_config = config["input_data"]
 
     for source in ["generation", "satellite"]:
-        if source in input_config:
-            # If not empty - i.e. if used
-            if input_config[source]["zarr_path"] != "":
-                input_config[source]["zarr_path"] = f"{placeholder}.zarr"
+        # If source present but path not empty
+        if (source in input_config) and (input_config[source]["zarr_path"] != ""):
+            input_config[source]["zarr_path"] = f"{placeholder}.zarr"
 
     if "nwp" in input_config:
         for source in input_config["nwp"]:
@@ -101,8 +101,7 @@ def minimize_config_for_model(config: dict, model: "BaseModel") -> dict:
                 + (model.sat_encoder.sequence_length - 1) * sat_config["time_resolution_minutes"]
             )
 
-    if "pv" in input_config:
-        if not model.include_pv:
+    if ("pv" in input_config) and (not model.include_pv):
             del input_config["pv"]
 
     if "generation" in input_config:
@@ -166,11 +165,11 @@ def download_from_hf(
                 raise Exception(
                     f"Failed to download {filename} from {repo_id} after {max_retries} attempts."
                 ) from e
-            logging.warning(
-                (
+            logger.warning(
+                
                     f"Attempt {attempt}/{max_retries} failed to download {filename} "
                     f"from {repo_id}. Retrying in {wait_time} seconds..."
-                )
+                
             )
             time.sleep(wait_time)
 
@@ -343,7 +342,6 @@ class HuggingfaceMixin:
 
             print(message)
 
-        return
 
     @staticmethod
     def create_hugging_face_model_card(

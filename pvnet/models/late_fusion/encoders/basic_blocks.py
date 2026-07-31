@@ -36,7 +36,6 @@ class AbstractNWPSatelliteEncoder(nn.Module, metaclass=ABCMeta):
     @abstractmethod
     def forward(self):
         """Run model forward"""
-        pass
 
 
 class ResidualConv3dBlock(nn.Module):

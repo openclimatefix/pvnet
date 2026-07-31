@@ -29,12 +29,11 @@ class AbstractLinearNetwork(nn.Module, metaclass=ABCMeta):
         elif isinstance(x, torch.Tensor):
             return x
         else:
-            raise ValueError(f"Input of unexpected type {type(x)}")
+            raise TypeError(f"Input of unexpected type {type(x)}")
 
     @abstractmethod
     def forward(self, x: OrderedDict[str, torch.Tensor] | torch.Tensor) -> torch.Tensor:
         """Run model forward"""
-        pass
 
 
 class ResidualLinearBlock(nn.Module):

@@ -84,7 +84,7 @@ class DefaultPVNet(AbstractNWPSatelliteEncoder):
             ),
             nn.ELU(),
         ]
-        for _ in range(0, number_of_conv3d_layers - 1):
+        for _ in range(number_of_conv3d_layers - 1):
             conv_layers += [
                 nn.Conv3d(
                     in_channels=conv3d_channels,

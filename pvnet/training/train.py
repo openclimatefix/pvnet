@@ -64,13 +64,13 @@ def train(config: DictConfig) -> None:
     # Init lightning loggers
     loggers: list[Logger] = []
     if "logger" in config:
-        for _, lg_conf in config.logger.items():
+        for lg_conf in config.logger.values():
             loggers.append(hydra.utils.instantiate(lg_conf))
 
     # Init lightning callbacks
     callbacks: list[Callback] = []
     if "callbacks" in config:
-        for _, cb_conf in config.callbacks.items():
+        for cb_conf in config.callbacks.values():
             callbacks.append(hydra.utils.instantiate(cb_conf))
 
     # Align the wandb id with the checkpoint path

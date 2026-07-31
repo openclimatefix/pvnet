@@ -168,15 +168,15 @@ class PVNetLightningModule(pl.LightningModule):
             y_hat = y_hat[..., None]
 
         ds_preds_batch = xr.Dataset(
-            data_vars=dict(
-                y_hat=(["sample_num", "forecast_step", "p_level"], y_hat),
-                y=(["sample_num", "forecast_step"], y),
-            ),
-            coords=dict(
-                ids=("sample_num", ids),
-                init_times_utc=("sample_num", init_times_utc),
-                p_level=p_levels,
-            ),
+            data_vars={
+                "y_hat": (["sample_num", "forecast_step", "p_level"], y_hat),
+                "y": (["sample_num", "forecast_step"], y),
+            },
+            coords={
+                "ids": ("sample_num", ids),
+                "init_times_utc": ("sample_num", init_times_utc),
+                "p_level": p_levels,
+            },
         )
         self.all_val_results.append(ds_preds_batch)
 
