@@ -166,10 +166,10 @@ def download_from_hf(
                     f"Failed to download {filename} from {repo_id} after {max_retries} attempts."
                 ) from e
             logging.warning(
-                (
+                
                     f"Attempt {attempt}/{max_retries} failed to download {filename} "
                     f"from {repo_id}. Retrying in {wait_time} seconds..."
-                )
+                
             )
             time.sleep(wait_time)
 
@@ -342,7 +342,6 @@ class HuggingfaceMixin:
 
             print(message)
 
-        return
 
     @staticmethod
     def create_hugging_face_model_card(
