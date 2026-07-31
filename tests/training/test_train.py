@@ -105,6 +105,7 @@ def test_train_pvnet(
     trainer_cfg_cpu,
     logger_cfg,
     ckpt_cfg,
+    wandb_save_dir
 ):
     """Train pvnet model with W&B offline."""
     cfg = DictConfig({
@@ -130,6 +131,10 @@ def test_train_pvnet(
     })
 
     pvnet_train(cfg)
+
+    # Check that checkpoint exists
+    ckpt_paths = list(Path(wandb_save_dir).parent.glob("*/last.ckpt"))
+    assert len(ckpt_paths) == 1,  f"expected one checkpoint called last.ckpt at end of epoch, got {ckpt_paths}"
 
     
 def test_checkpoint_load(
