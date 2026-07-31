@@ -34,10 +34,9 @@ def fill_config_paths_with_placeholder(config: dict, placeholder: str = "PLACEHO
     input_config = config["input_data"]
 
     for source in ["generation", "satellite"]:
-        if source in input_config:
-            # If not empty - i.e. if used
-            if input_config[source]["zarr_path"] != "":
-                input_config[source]["zarr_path"] = f"{placeholder}.zarr"
+        # If source present but path not empty
+        if (source in input_config) and (input_config[source]["zarr_path"] != ""):
+            input_config[source]["zarr_path"] = f"{placeholder}.zarr"
 
     if "nwp" in input_config:
         for source in input_config["nwp"]:
