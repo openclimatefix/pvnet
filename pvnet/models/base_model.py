@@ -101,8 +101,7 @@ def minimize_config_for_model(config: dict, model: "BaseModel") -> dict:
                 + (model.sat_encoder.sequence_length - 1) * sat_config["time_resolution_minutes"]
             )
 
-    if "pv" in input_config:
-        if not model.include_pv:
+    if ("pv" in input_config) and (not model.include_pv):
             del input_config["pv"]
 
     if "generation" in input_config:
