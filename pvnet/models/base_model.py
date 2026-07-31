@@ -23,6 +23,7 @@ from pvnet.utils import (
     PYTORCH_WEIGHTS_NAME,
 )
 
+logger = logging.getLogger(__name__)
 
 def fill_config_paths_with_placeholder(config: dict, placeholder: str = "PLACEHOLDER") -> dict:
     """Modify the config in place to fill data paths with placeholder strings.
@@ -164,7 +165,7 @@ def download_from_hf(
                 raise Exception(
                     f"Failed to download {filename} from {repo_id} after {max_retries} attempts."
                 ) from e
-            logging.warning(
+            logger.warning(
                 
                     f"Attempt {attempt}/{max_retries} failed to download {filename} "
                     f"from {repo_id}. Retrying in {wait_time} seconds..."
