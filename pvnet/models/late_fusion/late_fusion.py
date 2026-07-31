@@ -191,7 +191,7 @@ class LateFusionModel(BaseModel):
             if add_image_embedding_channel:
                 self.nwp_embed_dict = torch.nn.ModuleDict()
 
-            for nwp_source in nwp_encoders_dict.keys():
+            for nwp_source in nwp_encoders_dict:
                 nwp_sequence_len = (
                     nwp_history_minutes[nwp_source] // nwp_interval_minutes[nwp_source]
                     + nwp_forecast_minutes[nwp_source] // nwp_interval_minutes[nwp_source]
