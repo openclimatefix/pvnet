@@ -136,7 +136,7 @@ def prep_backtests(backtest_dict: dict[str, str], y_true: xr.Dataset):
     backtest_ds_list = []
 
     # Add model name dimension to each backtest
-    for model in backtest_dict.keys():
+    for model in backtest_dict:
         if type(backtest_dict[model]) is list:
             ds = xr.open_mfdataset(backtest_dict[model], engine="zarr")
             ds = ds.drop_duplicates(dim='init_time_utc')

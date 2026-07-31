@@ -67,7 +67,6 @@ class AbstractOptimizer(ABC):
     @abstractmethod
     def __call__(self, model: Module):
         """Abstract call"""
-        pass
 
 
 class Adam(AbstractOptimizer):
