@@ -73,14 +73,17 @@ if "adapt_batches" in model_config:
 
 # This parameter has been removed
 if "target_key" in model_config:
-    if model_config["target_key"] == "site":
-        if "include_site_yield_history" in model_config:
+    if (
+        (model_config["target_key"] == "site") 
+        and ("include_site_yield_history" in model_config)
+        ):
             model_config["include_generation_history"] = model_config.pop(
                 "include_site_yield_history"
             )
 
-    if model_config["target_key"] == "gsp" or not model_config["target_key"]:
-        if "include_site_yield_history" in model_config:
+    if (
+        (model_config["target_key"] == "gsp" or not model_config["target_key"]) 
+        and ("include_site_yield_history" in model_config)):
             del model_config["include_site_yield_history"]
 
     del model_config["target_key"]
