@@ -103,7 +103,7 @@ else:
 
 # Re-find the model components in the new package structure
 if model_config.get("nwp_encoders_dict", None) is not None:
-    for k, v in model_config["nwp_encoders_dict"].items():
+    for v in model_config["nwp_encoders_dict"].values():
         v["_target_"] = (
             v["_target_"]
             .replace("multimodal", "late_fusion")
