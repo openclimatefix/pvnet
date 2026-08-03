@@ -21,7 +21,7 @@ def trainer_cfg_cpu() -> dict:
     """Tiny CPU-only Trainer config."""
     return {
         "_target_": "lightning.pytorch.Trainer",
-        "max_epochs": 2,
+        "max_epochs": 1,
         "limit_train_batches": 1,
         "limit_val_batches": 1,
         "accelerator": "cpu",
@@ -54,7 +54,7 @@ def ckpt_cfg(wandb_save_dir: str) -> dict:
             "_target_": "lightning.pytorch.callbacks.ModelCheckpoint",
             "dirpath": str(Path(wandb_save_dir).parent / "ckpts"),
             "save_last": True,
-            "save_top_k": 2,
+            "save_top_k": 1,
             "monitor": "MAE/val",
             "mode": "min",
         }
@@ -145,35 +145,39 @@ def test_checkpoint_load(
     wandb_save_dir
 ):
     """Test saving and loading from checkpoint from previous test"""
+    print(wandb_save_dir)
     ckpt_epoch0_path = list(Path(wandb_save_dir).parent.glob("*/epoch=0*.ckpt"))[0]
-    
-    cfg = DictConfig({
-        "seed": 42,
-        "datamodule": {
-            "_target_": "pvnet.datamodule.PVNetDataModule",
-            "train_periods": [[None, None]],
-            "val_periods": [[None, None]],
-            "configuration": str(data_config_path),
-            "batch_size": 2,
-            "num_workers": 0,
-            "prefetch_factor": None,
-        },
-        "model": build_lit_late_fusion_cfg(
-            interval_minutes=30,
-            include_time=False,
-        ),
-        "logger": logger_cfg,
-        "callbacks": ckpt_cfg,
-        "trainer": trainer_cfg_cpu,
-        "model_name": "test_model",
-        "ckpt_path": ckpt_epoch0_path,
-    })
 
-    pvnet_train(cfg)
+    for i in range(2):
+        cfg = DictConfig({
+            "seed": 42,
+            "datamodule": {
+                "_target_": "pvnet.datamodule.PVNetDataModule",
+                "train_periods": [[None, None]],
+                "val_periods": [[None, None]],
+                "configuration": str(data_config_path),
+                "batch_size": 2,
+                "num_workers": 0,
+                "prefetch_factor": None,
+            },
+            "model": build_lit_late_fusion_cfg(
+                interval_minutes=30,
+                include_time=False,
+            ),
+            "logger": logger_cfg,
+            "callbacks": ckpt_cfg,
+            "trainer": trainer_cfg_cpu,
+            "model_name": "test_model",
+            "ckpt_path": ckpt_epoch0_path,
+        })
+
+        # i think the data is being fed in different order as we are resetting seed.
+        pvnet_train(cfg)
 
     # Check there are now two files at end of epoch=1
-    ckpt_epoch1_path = list(Path(wandb_save_dir).parent.glob("*/epoch=1*.ckpt"))
-    assert len(ckpt_epoch1_path) == 2, f"expected two checkpoints at end of epoch=1, got {ckpt_epoch1_path}"
+    ckpt_epoch1_path = list(Path(wandb_save_dir).parent.glob("*/epoch=*.ckpt"))
+    print(ckpt_epoch1_path)
+    assert len(ckpt_epoch1_path) == 2, f"expected 3 checkpoints at end of epoch, got {len(ckpt_epoch1_path)}, {ckpt_epoch1_path}"
 
     # Load both checkpoints and compare 
     ckpt0 = torch.load(ckpt_epoch1_path[0], map_location="cpu", weights_only=False)
@@ -182,7 +186,7 @@ def test_checkpoint_load(
     # Compare state_dict
     for key, value in ckpt0['state_dict'].items():
         assert key in ckpt1['state_dict'],  f"model parameter {key} present in {ckpt_epoch1_path[0]} not found in {ckpt_epoch1_path[1]}"
-        #assert ckpt1['state_dict'][key] == pytest.approx(value, abs=1e-8), f"model weights different for {key} by {ckpt1['state_dict'][key]-value}"
+        assert ckpt1['state_dict'][key] == pytest.approx(value, abs=1e-8), f"model weights different for {key} by {ckpt1['state_dict'][key]-value}"
         # TODO test above currently fails
 
     # Compare optimizer state
