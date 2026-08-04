@@ -137,6 +137,18 @@ def test_train_pvnet(
     ckpt_paths = list(Path(wandb_save_dir).parent.glob("*/last.ckpt"))
     assert len(ckpt_paths) == 1,  f"expected one checkpoint called last.ckpt at end of epoch, got {ckpt_paths}"
 
+def assert_same_dict(dict0: dict, dict1: dict, desc: str = ""):
+    """
+    Helper function to compare nested dictionaries containing torch tensors.
+    """
+    assert dict0.keys() == dict1.keys(), f"Key mismatch: {dict0.keys()}, {dict1.keys()}"
+    for key, value in dict0.items():
+        if isinstance(value, dict):
+            assert_same_dict(value, dict1[key], desc=f"{desc}.{key}")
+        else:
+            torch.testing.assert_close(dict1[key], value, atol=1e-9, rtol=0, 
+                                       msg=f"Checkpoints different for key '{key}' in {desc}: {dict1[key]} vs {value}")
+
     
 def test_checkpoint_load(
     data_config_path,
@@ -188,18 +200,8 @@ def test_checkpoint_load(
     ckpt1 = torch.load(ckpt_epoch1_path[1], map_location="cpu", weights_only=False)
 
     # Compare state_dict
-    for key, value in ckpt0['state_dict'].items():
-        assert key in ckpt1['state_dict'],  f"model parameter {key} present in {ckpt_epoch1_path[0]} not found in {ckpt_epoch1_path[1]}"
-        assert ckpt1['state_dict'][key] == pytest.approx(value, abs=1e-9), f"model weights different for {key} by {ckpt1['state_dict'][key]-value}"
+    assert_same_dict(ckpt0['state_dict'], ckpt1['state_dict'], desc="state_dict")
 
     # Compare optimizer state which is stored at each step
-    optimizer_state0 = ckpt0['optimizer_states'][-1]['state']
-    optimizer_state1 = ckpt1['optimizer_states'][-1]['state']
-
-    assert len(optimizer_state0) == len(optimizer_state1), f"optimizer state length different between {ckpt_epoch1_path[0]} and {ckpt_epoch1_path[1]}"
-    for step, optimizer_step0 in optimizer_state0.items(): 
-        optimizer_step1 = optimizer_state1[step]
-        for key, value in optimizer_step0.items():
-            assert key in optimizer_step1,  f"model parameter {key} present in {ckpt_epoch1_path[0]} not found in {ckpt_epoch1_path[1]}"
-            assert optimizer_step1[key] == pytest.approx(value, abs=1e-9), f"optimizer state different for {key} by {optimizer_step1[key]-value}"
-
+    assert_same_dict(ckpt0['optimizer_states'][-1], ckpt1['optimizer_states'][-1], desc="optimizer_states")
+    
