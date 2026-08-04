@@ -4,6 +4,7 @@ from pathlib import Path
 
 import torch
 import pytest
+import wandb
 from omegaconf import DictConfig
 
 from pvnet.training.train import train as pvnet_train
@@ -145,11 +146,12 @@ def test_checkpoint_load(
     wandb_save_dir
 ):
     """Test saving and loading from checkpoint from previous test"""
-    print(wandb_save_dir)
     ckpt_epoch0_path = list(Path(wandb_save_dir).parent.glob("*/epoch=0*.ckpt"))[0]
 
-    for i in range(2):
-        cfg = DictConfig({
+    # Extend max_epochs by 1 to continue training from checkpoint
+    trainer_cfg_cpu['max_epochs'] = 2
+
+    cfg = DictConfig({
             "seed": 42,
             "datamodule": {
                 "_target_": "pvnet.datamodule.PVNetDataModule",
@@ -171,13 +173,15 @@ def test_checkpoint_load(
             "ckpt_path": ckpt_epoch0_path,
         })
 
-        # i think the data is being fed in different order as we are resetting seed.
+    # Repeat training twice to check that we get the same results from the same checkpoint
+    for _ in range(2):
+        # Make sure wandb is reset before running pvnet
+        wandb.finish()
         pvnet_train(cfg)
 
     # Check there are now two files at end of epoch=1
-    ckpt_epoch1_path = list(Path(wandb_save_dir).parent.glob("*/epoch=*.ckpt"))
-    print(ckpt_epoch1_path)
-    assert len(ckpt_epoch1_path) == 2, f"expected 3 checkpoints at end of epoch, got {len(ckpt_epoch1_path)}, {ckpt_epoch1_path}"
+    ckpt_epoch1_path = list(Path(wandb_save_dir).parent.glob("*/epoch=1*.ckpt"))
+    assert len(ckpt_epoch1_path) == 2, f"expected 2 checkpoints at end of epoch 2, got {len(ckpt_epoch1_path)}, {ckpt_epoch1_path}"
 
     # Load both checkpoints and compare 
     ckpt0 = torch.load(ckpt_epoch1_path[0], map_location="cpu", weights_only=False)
@@ -186,16 +190,16 @@ def test_checkpoint_load(
     # Compare state_dict
     for key, value in ckpt0['state_dict'].items():
         assert key in ckpt1['state_dict'],  f"model parameter {key} present in {ckpt_epoch1_path[0]} not found in {ckpt_epoch1_path[1]}"
-        assert ckpt1['state_dict'][key] == pytest.approx(value, abs=1e-8), f"model weights different for {key} by {ckpt1['state_dict'][key]-value}"
-        # TODO test above currently fails
+        assert ckpt1['state_dict'][key] == pytest.approx(value, abs=1e-9), f"model weights different for {key} by {ckpt1['state_dict'][key]-value}"
 
-    # Compare optimizer state
-    for key, value in ckpt0['optimizer_states'][-1].items():
-        assert key in ckpt1['optimizer_states'][-1],  f"model parameter {key} present in {ckpt_epoch1_path[0]} not found in {ckpt_epoch1_path[1]}"
-        #assert ckpt1['optimizer_states'][-1][key] == pytest.approx(value, abs=1e-8), f"model weights different for {key} by {ckpt1['optimizer_states'][key]-value}"
-        # Also fails
+    # Compare optimizer state which is stored at each step
+    optimizer_state0 = ckpt0['optimizer_states'][-1]['state']
+    optimizer_state1 = ckpt1['optimizer_states'][-1]['state']
 
-            
+    assert len(optimizer_state0) == len(optimizer_state1), f"optimizer state length different between {ckpt_epoch1_path[0]} and {ckpt_epoch1_path[1]}"
+    for step, optimizer_step0 in optimizer_state0.items(): 
+        optimizer_step1 = optimizer_state1[step]
+        for key, value in optimizer_step0.items():
+            assert key in optimizer_step1,  f"model parameter {key} present in {ckpt_epoch1_path[0]} not found in {ckpt_epoch1_path[1]}"
+            assert optimizer_step1[key] == pytest.approx(value, abs=1e-9), f"optimizer state different for {key} by {optimizer_step1[key]-value}"
 
-
-    
