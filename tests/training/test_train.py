@@ -137,14 +137,14 @@ def test_train_pvnet(
     ckpt_paths = list(Path(wandb_save_dir).parent.glob("*/last.ckpt"))
     assert len(ckpt_paths) == 1,  f"expected one checkpoint called last.ckpt at end of epoch, got {ckpt_paths}"
 
-def assert_same_dict(dict0: dict, dict1: dict, desc: str = ""):
+def _assert_same_dict(dict0: dict, dict1: dict, desc: str = ""):
     """
     Helper function to compare nested dictionaries containing torch tensors.
     """
     assert dict0.keys() == dict1.keys(), f"Key mismatch: {dict0.keys()}, {dict1.keys()}"
     for key, value in dict0.items():
         if isinstance(value, dict):
-            assert_same_dict(value, dict1[key], desc=f"{desc}.{key}")
+            _assert_same_dict(value, dict1[key], desc=f"{desc}.{key}")
         else:
             torch.testing.assert_close(dict1[key], value, atol=1e-9, rtol=0, 
                                        msg=f"Checkpoints different for key '{key}' in {desc}: {dict1[key]} vs {value}")
@@ -200,8 +200,8 @@ def test_checkpoint_load(
     ckpt1 = torch.load(ckpt_epoch1_path[1], map_location="cpu", weights_only=False)
 
     # Compare state_dict
-    assert_same_dict(ckpt0['state_dict'], ckpt1['state_dict'], desc="state_dict")
+    _assert_same_dict(ckpt0['state_dict'], ckpt1['state_dict'], desc="state_dict")
 
     # Compare optimizer state which is stored at each step
-    assert_same_dict(ckpt0['optimizer_states'][-1], ckpt1['optimizer_states'][-1], desc="optimizer_states")
+    _assert_same_dict(ckpt0['optimizer_states'][-1], ckpt1['optimizer_states'][-1], desc="optimizer_states")
     
