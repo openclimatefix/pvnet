@@ -2,7 +2,9 @@
 
 from pathlib import Path
 
+import torch
 import pytest
+import wandb
 from omegaconf import DictConfig
 
 from pvnet.training.train import train as pvnet_train
@@ -104,6 +106,7 @@ def test_train_pvnet(
     trainer_cfg_cpu,
     logger_cfg,
     ckpt_cfg,
+    wandb_save_dir
 ):
     """Train pvnet model with W&B offline."""
     cfg = DictConfig({
@@ -125,6 +128,80 @@ def test_train_pvnet(
         "callbacks": ckpt_cfg,
         "trainer": trainer_cfg_cpu,
         "model_name": "test_model",
+        "ckpt_path": None,
     })
 
     pvnet_train(cfg)
+
+    # Check that checkpoint exists
+    ckpt_paths = list(Path(wandb_save_dir).parent.glob("*/last.ckpt"))
+    assert len(ckpt_paths) == 1,  f"expected one checkpoint called last.ckpt at end of epoch, got {ckpt_paths}"
+
+def _assert_same_dict(dict0: dict, dict1: dict, desc: str = ""):
+    """
+    Helper function to compare nested dictionaries containing torch tensors.
+    """
+    assert dict0.keys() == dict1.keys(), f"Key mismatch: {dict0.keys()}, {dict1.keys()}"
+    for key, value in dict0.items():
+        if isinstance(value, dict):
+            _assert_same_dict(value, dict1[key], desc=f"{desc}.{key}")
+        else:
+            torch.testing.assert_close(dict1[key], value, atol=1e-9, rtol=0, 
+                                       msg=f"Checkpoints different for key '{key}' in {desc}: {dict1[key]} vs {value}")
+
+    
+def test_checkpoint_load(
+    data_config_path,
+    trainer_cfg_cpu,
+    logger_cfg,
+    ckpt_cfg,
+    wandb_save_dir
+):
+    """Test saving and loading from checkpoint from previous test"""
+    ckpt_epoch0_path = list(Path(wandb_save_dir).parent.glob("*/epoch=0*.ckpt"))[0]
+
+    # Extend max_epochs by 1 to continue training from checkpoint
+    trainer_cfg_cpu['max_epochs'] = 2
+
+    cfg = DictConfig({
+            "seed": 42,
+            "datamodule": {
+                "_target_": "pvnet.datamodule.PVNetDataModule",
+                "train_periods": [[None, None]],
+                "val_periods": [[None, None]],
+                "configuration": str(data_config_path),
+                "batch_size": 2,
+                "num_workers": 0,
+                "prefetch_factor": None,
+            },
+            "model": build_lit_late_fusion_cfg(
+                interval_minutes=30,
+                include_time=False,
+            ),
+            "logger": logger_cfg,
+            "callbacks": ckpt_cfg,
+            "trainer": trainer_cfg_cpu,
+            "model_name": "test_model",
+            "ckpt_path": ckpt_epoch0_path,
+        })
+
+    # Repeat training twice to check that we get the same results from the same checkpoint
+    for _ in range(2):
+        # Make sure wandb is reset before running pvnet
+        wandb.finish()
+        pvnet_train(cfg)
+
+    # Check there are now two files at end of epoch=1
+    ckpt_epoch1_path = list(Path(wandb_save_dir).parent.glob("*/epoch=1*.ckpt"))
+    assert len(ckpt_epoch1_path) == 2, f"expected 2 checkpoints at end of epoch 2, got {len(ckpt_epoch1_path)}, {ckpt_epoch1_path}"
+
+    # Load both checkpoints and compare 
+    ckpt0 = torch.load(ckpt_epoch1_path[0], map_location="cpu", weights_only=False)
+    ckpt1 = torch.load(ckpt_epoch1_path[1], map_location="cpu", weights_only=False)
+
+    # Compare state_dict
+    _assert_same_dict(ckpt0['state_dict'], ckpt1['state_dict'], desc="state_dict")
+
+    # Compare optimizer state which is stored at each step
+    _assert_same_dict(ckpt0['optimizer_states'][-1], ckpt1['optimizer_states'][-1], desc="optimizer_states")
+    
