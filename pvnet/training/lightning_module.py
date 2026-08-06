@@ -14,7 +14,7 @@ from ocf_data_sampler.torch_datasets.utils.torch_batch_utils import copy_batch_t
 from pvnet.datamodule import collate_fn
 from pvnet.models.base_model import BaseModel
 from pvnet.optimizers import AbstractOptimizer
-from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot
+from pvnet.training.plots import plot_sample_forecasts, wandb_line_plot, wandb_line_plot_custom
 from pvnet.utils import validate_batch_against_config
 
 
@@ -366,7 +366,7 @@ class PVNetLightningModule(pl.LightningModule):
                 val_quantiles = np.mean(self._val_quantiles, axis=0)
                 self._val_quantiles = []
                     
-                qq_plot = wandb_line_plot(
+                qq_plot = wandb_line_plot_custom(
                     x=self.model.output_quantiles,
                     y=val_quantiles,
                     xlabel="True quantiles",
