@@ -23,47 +23,20 @@ def wandb_line_plot(
 
 def wandb_line_plot_custom(
     x: Sequence[float], 
-        y: Sequence[float], 
-        xlabel: str, 
-        ylabel: str, 
-        title: str | None = None
+    y: Sequence[float], 
+    xlabel: str, 
+    ylabel: str, 
+    title: str | None = None
     ) -> wandb.plot.CustomChart:
-        """Make a custom wandb line plot"""
-        data = [[xi, yi] for (xi, yi) in zip(x, y)]
-        table = wandb.Table(data=data, columns=[xlabel, ylabel])
-
-        custom_spec = {
-        "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
-        "data": {"name": "wandb"},
-        "mark": {
-            "type": "line", 
-            "strokeWidth": 2
-        },
-        "encoding": {
-            "x": {"field": "x_val", "type": "quantitative", "title": xlabel},
-            "y": {"field": "y_val", "type": "quantitative", "title": ylabel},
-            "color": {
-                "field": "Series", 
-                "type": "nominal",
-            },
-            "strokeDash": {
-                "field": "Series",
-                "type": "nominal",
-                "condition": {"test": "datum.Series === 'x=y'", "value": [6, 6]},
-                "value": [0, 0]
-            }
-        },
-        "title": title or ""
-        }
-
-        return wandb.plot_table(
-        vega_spec_name="custom_line",
-        data_table=table,
-        string_fields={"title": title or ""},
-        custom_plan=custom_spec
+    """Make a wandb plot with data and an x=y reference line."""    
+    return wandb.plot.line_series(
+        xs=[list(x), [0., 1.]],
+        ys=[list(y), [0., 1.]],
+        keys=["Data", "x=y"],
+        title=title,
+        xname=xlabel
     )
 
-    
 
 def plot_sample_forecasts(
     batch: TensorBatch,
