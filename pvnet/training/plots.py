@@ -14,29 +14,41 @@ def wandb_line_plot(
     y: Sequence[float], 
     xlabel: str, 
     ylabel: str, 
-    title: str | None = None
+    title: str | None = None,
+    add_identity_line: bool = False,
 ) -> wandb.plot.CustomChart:
     """Make a wandb line plot"""
-    data = [[xi, yi] for (xi, yi) in zip(x, y)]
-    table = wandb.Table(data=data, columns=[xlabel, ylabel])
-    return wandb.plot.line(table, xlabel, ylabel, title=title)
+    # Main series data
+    data = [[xi, yi, "Data"] for xi, yi in zip(x, y)]
+    
+    # Add identity line endpoints if requested
+    if add_identity_line:
+        min_val, max_val = min(x), max(x)
+        data.append([min_val, min_val, "x=y"])
+        data.append([max_val, max_val, "x=y"])
+
+    table = wandb.Table(data=data, columns=[xlabel, ylabel, "Series"])
+
+    # stroke=None creates a clean single line; stroke="Series" creates multi-line legend
+    stroke_col = "Series" if add_identity_line else None
+
+    return wandb.plot.line(
+        table=table, 
+        x=xlabel, 
+        y=ylabel, 
+        stroke=stroke_col, 
+        title=title
+    )
 
 def wandb_line_plot_custom(
     x: Sequence[float], 
     y: Sequence[float], 
     xlabel: str, 
     ylabel: str, 
-    title: str | None = None
-    ) -> wandb.plot.CustomChart:
-    """Make a wandb plot with data and an x=y reference line."""    
-    return wandb.plot.line_series(
-        xs=[list(x), [0., 1.]],
-        ys=[list(y), [0., 1.]],
-        keys=["Data", "x=y"],
-        title=title,
-        xname=xlabel
-    )
-
+    title: str | None = None):
+    return wandb_line_plot(x=x, y=y, xlabel=xlabel, ylabel=ylabel, 
+                           title=title, add_identity_line=True)
+   
 
 def plot_sample_forecasts(
     batch: TensorBatch,
