@@ -227,7 +227,7 @@ class Forecaster:
                 if expected != actual:
                     logger.warning(_model_mismatch_msg.format(*actual, *expected))
 
-            except Exception as e:
+            except Exception as e: # noqa: BLE001
                 logger.warning(
                     f"Could not load summation model: {e}. "
                     "Continuing without national forecasts."
