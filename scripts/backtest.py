@@ -203,36 +203,26 @@ class Forecaster:
             revision=pvnet_model_version,
         ).to(device).eval()
 
-        # Load the summation model if available
-        self.sum_model = None
-
+        # Load the summation model
         if summation_model_name is not None:
-            try:
-                self.sum_model = SummationBaseModel.from_pretrained(
-                    model_id=summation_model_name,
-                    revision=summation_model_version,
-                ).to(device).eval()
+            self.sum_model = SummationBaseModel.from_pretrained(
+                model_id=summation_model_name,
+                revision=summation_model_version,
+            ).to(device).eval()
 
-                # Check PVNet model compatibility
-                datamodule_path = SummationBaseModel.get_datamodule_config(
-                    model_id=summation_model_name,
-                    revision=summation_model_version,
-                )
-                with open(datamodule_path) as cfg:
-                    sum_pvnet_cfg = yaml.load(cfg, Loader=yaml.FullLoader)["pvnet_model"]
+            # Compare the current regional model with the one the summation model was trained on
+            datamodule_path = SummationBaseModel.get_datamodule_config(
+                model_id=summation_model_name,
+                revision=summation_model_version,
+            )
+            with open(datamodule_path) as cfg:
+                sum_pvnet_cfg = yaml.load(cfg, Loader=yaml.FullLoader)["pvnet_model"]
 
-                expected = (sum_pvnet_cfg["model_id"], sum_pvnet_cfg["revision"])
-                actual = (pvnet_model_name, pvnet_model_version)
+            sum_expected_reg_model = (sum_pvnet_cfg["model_id"], sum_pvnet_cfg["revision"])
+            this_reg_model = (pvnet_model_name, pvnet_model_version)
 
-                if expected != actual:
-                    logger.warning(_model_mismatch_msg.format(*actual, *expected))
-
-            except Exception as e: # noqa: BLE001
-                logger.warning(
-                    f"Could not load summation model: {e}. "
-                    "Continuing without national forecasts."
-                )
-                self.sum_model = None
+            if sum_expected_reg_model != this_reg_model:
+                logger.warning(_model_mismatch_msg.format(*this_reg_model, *sum_expected_reg_model))
 
         # These are the steps this forecast will predict for
         self.steps = pd.timedelta_range(
@@ -279,7 +269,7 @@ class Forecaster:
 
             da_abs = da_abs.where(~da_sundown_mask, other=0.0)
 
-        if self.sum_model is not None:
+        if self.summation_model_name is not None:
             # Make national predictions using summation model
             # - Need to add batch dimension and convert to torch tensors on device
             sample["pvnet_outputs"] = torch.tensor(normed_preds[None]).to(self.device)
@@ -316,7 +306,6 @@ class Forecaster:
                 "pvnet_model_version": self.pvnet_model_version or "none",
                 "summation_model_name": self.summation_model_name or "none",
                 "summation_model_version": self.summation_model_version or "none",
-                "summation_model_loaded": self.sum_model is not None,
                 "min_solar_elevation": (
                     self.min_solar_elevation if self.min_solar_elevation is not None else "none",
                 ),
