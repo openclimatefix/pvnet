@@ -72,6 +72,7 @@ _model_mismatch_msg = (
     "may lead to unreliable results even if the shapes match."
 )
 
+
 def populate_config_with_data_filepaths(config: dict, data_paths: dict) -> dict:
     """Populate the data source filepaths in the config
 
@@ -156,6 +157,10 @@ def construct_model_data_config(
 class BacktestStreamedDataset(StreamedDataset):
     """A torch dataset object used only for backtesting"""
 
+    def __init__(self, *args, use_summation_model=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.use_summation_model = use_summation_model    
+    
     def _get_sample(self, t0: pd.Timestamp) -> ...:
         """Generate a concurrent PVNet sample for given init-time + augment for backtesting.
 
@@ -165,14 +170,12 @@ class BacktestStreamedDataset(StreamedDataset):
 
         sample = super()._get_sample(t0)
 
-        total_capacity = self.national_data.sel(time_utc=t0).capacity_mwp.item()
-
-        sample.update(
-            {
-                "backtest_t0": t0,
-                "backtest_national_capacity": total_capacity,
-            }
-        )
+        sample["backtest_t0"] = t0
+        
+        if self.use_summation_model:
+            sample["backtest_national_capacity"] = (
+                self.national_data.sel(time_utc=t0).capacity_mwp.item()
+            )        
 
         return sample
 
@@ -445,6 +448,7 @@ def main(
         dataset = BacktestStreamedDataset(
             config_filename=model_data_config_filepath,
             time_periods=[[start_datetime, end_datetime]],
+            use_summation_model=summation_model_name is not None,
         )
 
         if num_workers>0:
