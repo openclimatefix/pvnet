@@ -157,7 +157,7 @@ def construct_model_data_config(
 class BacktestStreamedDataset(StreamedDataset):
     """A torch dataset object used only for backtesting"""
 
-    def __init__(self, *args, use_summation_model=False, **kwargs):
+    def __init__(self, *args, use_summation_model, **kwargs):
         """Initialise dataset."""
         super().__init__(*args, **kwargs)
         self.use_summation_model = use_summation_model    
