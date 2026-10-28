@@ -174,10 +174,6 @@ You can override any setting with Hydra, e.g.:
 
 python run.py datamodule=streamed_samples datamodule.configuration="/FULL-PATH/PVNet/configs/datamodule/configuration/example_configuration.yaml"
 
-## Backtest
-
-If you have successfully trained a PVNet model and have a saved model checkpoint you can create a backtest using this, e.g. forecasts on historical data to evaluate forecast accuracy/skill. This can be done by running one of the scripts in this repo such as [the UK GSP backtest script](scripts/backtest_uk_gsp.py) or the [the pv site backtest script](scripts/backtest_sites.py), further info on how to run these are in each backtest file.
-
 ## Testing
 
 You can use `python -m pytest tests` to run tests
