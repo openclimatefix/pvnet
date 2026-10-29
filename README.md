@@ -174,6 +174,12 @@ You can override any setting with Hydra, e.g.:
 
 python run.py datamodule=streamed_samples datamodule.configuration="/FULL-PATH/PVNet/configs/datamodule/configuration/example_configuration.yaml"
 
+## Evaluation
+
+After training, you can evaluate model performance on the validation dataset, for example using [`scripts/mae_analysis.py`](https://github.com/openclimatefix/pvnet/blob/main/scripts/mae_analysis.py). Once trained, you can push the model checkpoints to hugging face with [`scripts/checkpoint_to_huggingface.py`](https://github.com/openclimatefix/pvnet/blob/main/scripts/checkpoint_to_huggingface.py). This script is also used to store the best checkpoint locally with the flag `--no-push-to-hub`. 
+
+If you have successfully trained a PVNet model and have a saved model checkpoint, you can find instructions on how to run a backtest and evaluate it in [ml-tooling](https://github.com/openclimatefix/ml-tooling/tree/main/backtests) (for internal OCF use only). 
+
 ## Testing
 
 You can use `python -m pytest tests` to run tests
