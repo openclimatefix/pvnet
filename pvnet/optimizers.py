@@ -1,211 +1,107 @@
 """Optimizer factory-function classes.
+
+Optimizer classes are used by the model like:
+> optimizer_generator = SomeOptimizer(**kwargs)
+> optimizer = optimizer_generator(model)
+The returned object must be something `pytorch_lightning`'s `configure_optimizers()` accepts.
 """
 
 from abc import ABC, abstractmethod
 
 import torch
-from torch.nn import Module
-from torch.nn.parameter import Parameter
-
-
-def find_submodule_parameters(model: Module, search_modules: list[Module]) -> list[Parameter]:
-    """Finds all parameters within given submodule types
-
-    Args:
-        model: torch Module to search through
-        search_modules: List of submodule types to search for
-    """
-    if isinstance(model, search_modules):
-        return model.parameters()
-
-    children = list(model.children())
-    if len(children) == 0:
-        return []
-    else:
-        params = []
-        for c in children:
-            params += find_submodule_parameters(c, search_modules)
-        return params
-
-
-def find_other_than_submodule_parameters(
-    model: Module, 
-    ignore_modules: list[Module],
-) -> list[Parameter]:
-    """Finds all parameters not with given submodule types
-
-    Args:
-        model: torch Module to search through
-        ignore_modules: List of submodule types to ignore
-    """
-    if isinstance(model, ignore_modules):
-        return []
-
-    children = list(model.children())
-    if len(children) == 0:
-        return model.parameters()
-    else:
-        params = []
-        for c in children:
-            params += find_other_than_submodule_parameters(c, ignore_modules)
-        return params
+from torch import nn
 
 
 class AbstractOptimizer(ABC):
-    """Abstract class for optimizer
+    """Abstract class for optimizer factories"""
 
-    Optimizer classes will be used by model like:
-    > OptimizerGenerator = AbstractOptimizer()
-    > optimizer = OptimizerGenerator(model)
-    The returned object `optimizer` must be something that may be returned by `pytorch_lightning`'s
-    `configure_optimizers()` method.
-    See :
-        https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#configure-optimizers
-
-    """
+    def __init__(self, lr: float = 0.0005, **opt_kwargs):
+        """Store the learning rate and any extra kwargs passed to the torch optimizer"""
+        self.lr = lr  # overwritten by the LR finder via PVNetLightningModule
+        self.opt_kwargs = opt_kwargs
 
     @abstractmethod
-    def __call__(self, model: Module):
-        """Abstract call"""
+    def __call__(self, model: nn.Module):
+        """Return the optimizer (and optionally scheduler) for the model"""
 
 
 class Adam(AbstractOptimizer):
     """Adam optimizer"""
 
-    def __init__(self, lr: float = 0.0005, **kwargs):
-        """Adam optimizer"""
-        self.lr = lr
-        self.kwargs = kwargs
-
-    def __call__(self, model: Module):
+    def __call__(self, model: nn.Module):
         """Return optimizer"""
-        return torch.optim.Adam(model.parameters(), lr=self.lr, **self.kwargs)
+        return torch.optim.Adam(model.parameters(), lr=self.lr, **self.opt_kwargs)
 
 
 class AdamW(AbstractOptimizer):
     """AdamW optimizer"""
 
-    def __init__(self, lr: float = 0.0005, **kwargs):
-        """AdamW optimizer"""
-        self.lr = lr
-        self.kwargs = kwargs
-
-    def __call__(self, model: Module):
+    def __call__(self, model: nn.Module):
         """Return optimizer"""
-        return torch.optim.AdamW(model.parameters(), lr=self.lr, **self.kwargs)
-
-
-
-class EmbAdamWReduceLROnPlateau(AbstractOptimizer):
-    """AdamW optimizer and reduce on plateau scheduler"""
-
-    def __init__(
-        self, 
-        lr: float = 0.0005, 
-        weight_decay: float = 0.01, 
-        patience: int = 3, 
-        factor: float = 0.5, 
-        threshold: float = 2e-4, 
-        **opt_kwargs,
-    ):
-        """AdamW optimizer and reduce on plateau scheduler"""
-        self.lr = lr
-        self.weight_decay = weight_decay
-        self.patience = patience
-        self.factor = factor
-        self.threshold = threshold
-        self.opt_kwargs = opt_kwargs
-
-    def __call__(self, model):
-        """Return optimizer"""
-
-        search_modules = (torch.nn.Embedding,)
-
-        no_decay = find_submodule_parameters(model, search_modules)
-        decay = find_other_than_submodule_parameters(model, search_modules)
-
-        optim_groups = [
-            {"params": decay, "weight_decay": self.weight_decay},
-            {"params": no_decay, "weight_decay": 0.0},
-        ]
-        monitor = "quantile_loss/val" if model.use_quantile_regression else "MAE/val"
-        opt = torch.optim.AdamW(optim_groups, lr=self.lr, **self.opt_kwargs)
-        sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            opt,
-            factor=self.factor,
-            patience=self.patience,
-            threshold=self.threshold,
-        )
-        return {
-            "optimizer": opt,
-            "lr_scheduler": {"scheduler": sch, "monitor": monitor},
-        }
+        return torch.optim.AdamW(model.parameters(), lr=self.lr, **self.opt_kwargs)
 
 
 class AdamWReduceLROnPlateau(AbstractOptimizer):
-    """AdamW optimizer and reduce on plateau scheduler"""
+    """AdamW optimizer and reduce on plateau scheduler.
+
+    `lr` may be a float, or a dict mapping parameter-name prefixes to learning rates, with a
+    "default" key used for all remaining parameters.
+    """
 
     def __init__(
-        self, 
-        lr: float = 0.0005, 
-        patience: int = 3, 
-        factor: float = 0.5, 
-        threshold: float = 2e-4, 
+        self,
+        lr: float | dict[str, float] = 0.0005,
+        patience: int = 3,
+        factor: float = 0.5,
+        threshold: float = 2e-4,
         **opt_kwargs,
     ):
         """AdamW optimizer and reduce on plateau scheduler"""
-        self.lr = lr
-        self.patience = patience
-        self.factor = factor
-        self.threshold = threshold
-        self.opt_kwargs = opt_kwargs
+        super().__init__(lr, **opt_kwargs)
+        self.scheduler_kwargs = {"patience": patience, "factor": factor, "threshold": threshold}
 
-    def _call_multi(self, model):
-        remaining_params = {k: p for k, p in model.named_parameters()}
+    def _param_groups(self, model: nn.Module) -> tuple[list[dict], float]:
+        """Return the param groups and the default learning rate"""
+        if not isinstance(self.lr, dict):
+            return [{"params": list(model.parameters())}], self.lr
 
-        group_args = []
-
-        for key in self.lr:
-            if key == "default":
+        remaining = dict(model.named_parameters())
+        groups = []
+        for prefix, lr in self.lr.items():
+            if prefix == "default":
                 continue
+            names = [n for n in remaining if n.startswith(prefix)]
+            groups.append({"params": [remaining.pop(n) for n in names], "lr": lr})
+        groups.append({"params": list(remaining.values())})
+        return groups, self.lr["default"]
 
-            submodule_params = []
-            for param_name in list(remaining_params.keys()):
-                if param_name.startswith(key):
-                    submodule_params += [remaining_params.pop(param_name)]
-
-            group_args += [{"params": submodule_params, "lr": self.lr[key]}]
-
-        remaining_params = [p for k, p in remaining_params.items()]
-        group_args += [{"params": remaining_params}]
+    def __call__(self, model: nn.Module) -> dict:
+        """Return optimizer and scheduler"""
+        groups, lr = self._param_groups(model)
+        opt = torch.optim.AdamW(groups, lr=lr, **self.opt_kwargs)
+        sch = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, **self.scheduler_kwargs)
         monitor = "quantile_loss/val" if model.use_quantile_regression else "MAE/val"
-        opt = torch.optim.AdamW(group_args, lr=self.lr["default"], **self.opt_kwargs)
-        sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            opt,
-            factor=self.factor,
-            patience=self.patience,
-            threshold=self.threshold,
-        )
-        return {
-            "optimizer": opt,
-            "lr_scheduler": {"scheduler": sch, "monitor": monitor},
+        return {"optimizer": opt, "lr_scheduler": {"scheduler": sch, "monitor": monitor}}
+
+
+class EmbAdamWReduceLROnPlateau(AdamWReduceLROnPlateau):
+    """AdamW optimizer, with no weight decay on embeddings, and reduce on plateau scheduler"""
+
+    def __init__(self, lr: float = 0.0005, weight_decay: float = 0.01, **kwargs):
+        """AdamW optimizer and reduce on plateau scheduler"""
+        super().__init__(lr, **kwargs)
+        self.weight_decay = weight_decay
+
+    def _param_groups(self, model: nn.Module) -> tuple[list[dict], float]:
+        """Split params into embedding (no decay) and all others (decay)"""
+        emb_ids = {
+            id(p) for m in model.modules() if isinstance(m, nn.Embedding) for p in m.parameters()
         }
-
-
-    def __call__(self, model):
-        """Return optimizer"""
-        if isinstance(self.lr, dict):
-            return self._call_multi(model)
-        else:
-            monitor = "quantile_loss/val" if model.use_quantile_regression else "MAE/val"
-            opt = torch.optim.AdamW(model.parameters(), lr=self.lr, **self.opt_kwargs)
-            sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                opt,
-                factor=self.factor,
-                patience=self.patience,
-                threshold=self.threshold,
-            )
-            return {
-                "optimizer": opt,
-                "lr_scheduler": {"scheduler": sch, "monitor": monitor},
-            }
+        params = list(model.parameters())
+        decay = [p for p in params if id(p) not in emb_ids]
+        no_decay = [p for p in params if id(p) in emb_ids]
+        groups = [
+            {"params": decay, "weight_decay": self.weight_decay},
+            {"params": no_decay, "weight_decay": 0.0},
+        ]
+        return groups, self.lr
